@@ -318,6 +318,30 @@ h1 {
     background: #5568d3;
 }
 
+.footer {
+    text-align: center;
+    margin-top: 30px;
+    padding: 20px;
+    color: white;
+    font-size: 0.9rem;
+}
+
+.footer p {
+    margin: 0;
+}
+
+.footer a {
+    color: white;
+    text-decoration: none;
+    font-weight: 600;
+    transition: opacity 0.2s ease;
+}
+
+.footer a:hover {
+    opacity: 0.8;
+    text-decoration: underline;
+}
+
 @media (max-width: 600px) {
     body {
         padding: 10px;
