@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ML Exam Training</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Machine Learning Exam Training</h1>
+            <div class="progress-bar">
+                <div class="progress-fill" id="progressBar"></div>
+            </div>
+            <div class="stats">
+                <span id="questionCounter">Question 1 of 120</span>
+                <span id="scoreCounter">Score: 0/0</span>
+            </div>
+        </header>
+
+        <main id="quizContainer">
+            <div class="quiz-card">
+                <div class="topic-badge" id="topicBadge">Topic</div>
+                <h2 class="question" id="questionText">Loading questions...</h2>
+
+                <div class="options" id="optionsContainer">
+                    <button class="option-btn" data-option="A">
+                        <span class="option-label">A</span>
+                        <span class="option-text"></span>
+                    </button>
+                    <button class="option-btn" data-option="B">
+                        <span class="option-label">B</span>
+                        <span class="option-text"></span>
+                    </button>
+                    <button class="option-btn" data-option="C">
+                        <span class="option-label">C</span>
+                        <span class="option-text"></span>
+                    </button>
+                    <button class="option-btn" data-option="D">
+                        <span class="option-label">D</span>
+                        <span class="option-text"></span>
+                    </button>
+                </div>
+
+                <div id="feedback" class="feedback hidden">
+                    <div class="feedback-content">
+                        <p id="feedbackText"></p>
+                        <div id="searchSuggestion" class="search-suggestion hidden">
+                            <p>Need help understanding this? Search for:</p>
+                            <a id="searchLink" href="#" target="_blank" class="search-btn">Search on Google</a>
+                        </div>
+                    </div>
+                </div>
+
+                <button id="nextBtn" class="next-btn hidden">Next Question</button>
+            </div>
+        </main>
+
+        <div id="resultsContainer" class="results-container hidden">
+            <div class="results-card">
+                <h2>Quiz Complete!</h2>
+                <div class="trophy">🏆</div>
+                <div class="final-score">
+                    <h3 id="finalScore">Your Score: 0/120</h3>
+                    <p id="percentage">0%</p>
+                </div>
+                <div class="performance-message" id="performanceMessage"></div>
+                <div class="topic-breakdown" id="topicBreakdown"></div>
+                <button id="restartBtn" class="restart-btn">Start Over</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
