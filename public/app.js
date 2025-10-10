@@ -19,12 +19,23 @@ const progressBar = document.getElementById('progressBar');
 const quizContainer = document.getElementById('quizContainer');
 const resultsContainer = document.getElementById('resultsContainer');
 
+// Shuffle array using Fisher-Yates algorithm
+function shuffleArray(array) {
+    const shuffled = [...array];
+    for (let i = shuffled.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+    }
+    return shuffled;
+}
+
 // Load questions from API
 async function loadQuestions() {
     try {
         const response = await fetch('/api/questions');
-        questions = await response.json();
-        console.log(`Loaded ${questions.length} questions`);
+        const loadedQuestions = await response.json();
+        questions = shuffleArray(loadedQuestions);
+        console.log(`Loaded ${questions.length} questions (randomized)`);
         displayQuestion();
     } catch (error) {
         console.error('Error loading questions:', error);
@@ -203,6 +214,7 @@ document.getElementById('restartBtn').addEventListener('click', () => {
     score = 0;
     answered = 0;
     topicStats = {};
+    questions = shuffleArray(questions);
     resultsContainer.classList.add('hidden');
     quizContainer.classList.remove('hidden');
     displayQuestion();
