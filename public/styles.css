@@ -24,11 +24,37 @@ header {
     margin-bottom: 30px;
 }
 
+.header-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+}
+
 h1 {
     color: #333;
     font-size: 2rem;
-    margin-bottom: 20px;
+    margin: 0;
     text-align: center;
+    flex: 1;
+}
+
+.sign-in-btn {
+    padding: 10px 20px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-size: 0.95rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: transform 0.2s ease, opacity 0.2s ease;
+    white-space: nowrap;
+}
+
+.sign-in-btn:hover {
+    transform: translateY(-2px);
+    opacity: 0.9;
 }
 
 .progress-bar {
@@ -342,6 +368,196 @@ h1 {
     text-decoration: underline;
 }
 
+/* Modal Styles */
+.modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.7);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+.modal-content {
+    background: white;
+    padding: 40px;
+    border-radius: 20px;
+    max-width: 500px;
+    width: 90%;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+    animation: slideUp 0.3s ease;
+}
+
+@keyframes slideUp {
+    from {
+        transform: translateY(50px);
+        opacity: 0;
+    }
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+
+.modal-header {
+    text-align: center;
+    margin-bottom: 30px;
+}
+
+.modal-header h2 {
+    color: #333;
+    font-size: 1.8rem;
+    margin-bottom: 10px;
+}
+
+.modal-header p {
+    color: #666;
+    font-size: 1rem;
+}
+
+.signup-form {
+    display: flex;
+    flex-direction: column;
+}
+
+.form-group {
+    margin-bottom: 20px;
+}
+
+.form-group label {
+    display: block;
+    color: #333;
+    font-weight: 600;
+    margin-bottom: 8px;
+}
+
+.form-group input {
+    width: 100%;
+    padding: 12px 15px;
+    border: 2px solid #e0e0e0;
+    border-radius: 10px;
+    font-size: 1rem;
+    transition: border-color 0.2s ease;
+}
+
+.form-group input:focus {
+    outline: none;
+    border-color: #667eea;
+}
+
+.submit-btn {
+    width: 100%;
+    padding: 15px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border: none;
+    border-radius: 10px;
+    font-size: 1.1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: transform 0.2s ease;
+    margin-bottom: 10px;
+}
+
+.submit-btn:hover {
+    transform: translateY(-2px);
+}
+
+.skip-btn {
+    width: 100%;
+    padding: 12px;
+    background: transparent;
+    color: #666;
+    border: 2px solid #e0e0e0;
+    border-radius: 10px;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.skip-btn:hover {
+    background: #f8f9fa;
+    border-color: #ccc;
+}
+
+.privacy-note {
+    text-align: center;
+    color: #999;
+    font-size: 0.85rem;
+    margin-top: 15px;
+}
+
+.welcome-options {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+.option-btn-large {
+    display: flex;
+    align-items: center;
+    padding: 20px;
+    background: #f8f9fa;
+    border: 2px solid #e0e0e0;
+    border-radius: 15px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    text-align: left;
+}
+
+.option-btn-large:hover {
+    background: #f0f0f0;
+    border-color: #667eea;
+    transform: translateX(5px);
+}
+
+.option-btn-large.primary {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border-color: #667eea;
+    color: white;
+}
+
+.option-btn-large.primary:hover {
+    transform: translateX(5px) scale(1.02);
+}
+
+.option-btn-large .btn-icon {
+    font-size: 2rem;
+    margin-right: 15px;
+}
+
+.option-btn-large div {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.option-btn-large strong {
+    font-size: 1.2rem;
+    display: block;
+}
+
+.option-btn-large small {
+    font-size: 0.9rem;
+    opacity: 0.8;
+}
+
+.option-btn-large.primary strong,
+.option-btn-large.primary small {
+    color: white;
+}
+
 @media (max-width: 600px) {
     body {
         padding: 10px;
@@ -351,8 +567,20 @@ h1 {
         padding: 20px;
     }
 
+    .header-top {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 15px;
+    }
+
     h1 {
         font-size: 1.5rem;
+        text-align: center;
+    }
+
+    .sign-in-btn {
+        width: 100%;
+        padding: 12px;
     }
 
     .quiz-card {
@@ -365,5 +593,21 @@ h1 {
 
     .option-btn {
         padding: 15px;
+    }
+
+    .modal-content {
+        padding: 25px;
+    }
+
+    .modal-header h2 {
+        font-size: 1.5rem;
+    }
+
+    .option-btn-large {
+        padding: 15px;
+    }
+
+    .option-btn-large .btn-icon {
+        font-size: 1.5rem;
     }
 }
