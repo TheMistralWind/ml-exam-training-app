@@ -71,6 +71,55 @@
             </div>
         </div>
 
+        <!-- Email Signup Modal -->
+        <div id="signupModal" class="modal hidden">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h2>🎯 Great Progress!</h2>
+                    <p>Save your progress and continue from where you left off anytime!</p>
+                </div>
+                <form id="signupForm" class="signup-form">
+                    <div class="form-group">
+                        <label for="emailInput">Email Address</label>
+                        <input
+                            type="email"
+                            id="emailInput"
+                            placeholder="your.email@example.com"
+                            required
+                        >
+                    </div>
+                    <button type="submit" class="submit-btn">Save Progress & Continue</button>
+                    <p class="privacy-note">We'll only use your email to save your progress. No spam, promise!</p>
+                </form>
+            </div>
+        </div>
+
+        <!-- Welcome Back Modal -->
+        <div id="welcomeModal" class="modal hidden">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h2>👋 Welcome Back!</h2>
+                    <p id="welcomeEmail"></p>
+                </div>
+                <div class="welcome-options">
+                    <button id="continueBtn" class="option-btn-large primary">
+                        <span class="btn-icon">▶️</span>
+                        <div>
+                            <strong>Continue</strong>
+                            <small id="progressInfo">Resume from question X</small>
+                        </div>
+                    </button>
+                    <button id="startFreshBtn" class="option-btn-large">
+                        <span class="btn-icon">🔄</span>
+                        <div>
+                            <strong>Start Fresh</strong>
+                            <small>Begin from the beginning</small>
+                        </div>
+                    </button>
+                </div>
+            </div>
+        </div>
+
         <footer class="footer">
             <p>Made by <a href="https://www.deuslabs.ai/" target="_blank" rel="noopener noreferrer">DeusLabs.ai</a></p>
         </footer>

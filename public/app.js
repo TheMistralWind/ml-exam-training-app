@@ -3,6 +3,25 @@ let currentQuestionIndex = 0;
 let score = 0;
 let answered = 0;
 let topicStats = {};
+let userEmail = null;
+let hasShownSignup = false;
+let sourceSlug = 'default';
+
+// Capture source from URL parameter on page load
+(function initializeSource() {
+    const urlParams = new URLSearchParams(window.location.search);
+    const urlSource = urlParams.get('source');
+
+    if (urlSource) {
+        sourceSlug = urlSource;
+        localStorage.setItem('source_slug', urlSource);
+    } else {
+        const storedSource = localStorage.getItem('source_slug');
+        if (storedSource) {
+            sourceSlug = storedSource;
+        }
+    }
+})();
 
 // DOM Elements
 const questionText = document.getElementById('questionText');
@@ -18,6 +37,10 @@ const scoreCounter = document.getElementById('scoreCounter');
 const progressBar = document.getElementById('progressBar');
 const quizContainer = document.getElementById('quizContainer');
 const resultsContainer = document.getElementById('resultsContainer');
+const signupModal = document.getElementById('signupModal');
+const welcomeModal = document.getElementById('welcomeModal');
+const signupForm = document.getElementById('signupForm');
+const emailInput = document.getElementById('emailInput');
 
 // Shuffle array using Fisher-Yates algorithm
 function shuffleArray(array) {
@@ -29,6 +52,129 @@ function shuffleArray(array) {
     return shuffled;
 }
 
+// LocalStorage helpers
+function saveToLocalStorage() {
+    const progress = {
+        currentQuestionIndex,
+        score,
+        answered,
+        topicStats,
+        questionOrder: questions.map(q => q.id)
+    };
+    localStorage.setItem('quizProgress', JSON.stringify(progress));
+}
+
+function loadFromLocalStorage() {
+    const saved = localStorage.getItem('quizProgress');
+    return saved ? JSON.parse(saved) : null;
+}
+
+function clearLocalStorage() {
+    localStorage.removeItem('quizProgress');
+}
+
+function getStoredEmail() {
+    return localStorage.getItem('userEmail');
+}
+
+function setStoredEmail(email) {
+    localStorage.setItem('userEmail', email);
+}
+
+// Progress management
+async function saveProgress(email) {
+    try {
+        const progress = {
+            currentQuestionIndex,
+            score,
+            answered,
+            topicStats,
+            questionOrder: questions.map(q => q.id)
+        };
+
+        const response = await fetch('/api/progress/save', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                email,
+                source_slug: sourceSlug,
+                progress
+            })
+        });
+
+        if (!response.ok) {
+            throw new Error('Failed to save progress');
+        }
+
+        return true;
+    } catch (error) {
+        console.error('Error saving progress:', error);
+        return false;
+    }
+}
+
+async function loadProgress(email) {
+    try {
+        const response = await fetch(`/api/progress/${encodeURIComponent(email)}`);
+        const data = await response.json();
+
+        if (data.exists) {
+            return data.progress;
+        }
+        return null;
+    } catch (error) {
+        console.error('Error loading progress:', error);
+        return null;
+    }
+}
+
+async function resetProgress(email) {
+    try {
+        const response = await fetch('/api/progress/reset', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email })
+        });
+
+        if (!response.ok) {
+            throw new Error('Failed to reset progress');
+        }
+
+        return true;
+    } catch (error) {
+        console.error('Error resetting progress:', error);
+        return false;
+    }
+}
+
+// Modal management
+function showSignupModal() {
+    signupModal.classList.remove('hidden');
+}
+
+function hideSignupModal() {
+    signupModal.classList.add('hidden');
+}
+
+function showWelcomeModal(email, progress) {
+    document.getElementById('welcomeEmail').textContent = email;
+    document.getElementById('progressInfo').textContent =
+        `Resume from question ${progress.currentQuestionIndex + 1} (Score: ${progress.score}/${progress.answered})`;
+    welcomeModal.classList.remove('hidden');
+}
+
+function hideWelcomeModal() {
+    welcomeModal.classList.add('hidden');
+}
+
+// Check if user should see signup modal
+function checkSignupTrigger() {
+    if (!userEmail && answered === 5 && !hasShownSignup) {
+        hasShownSignup = true;
+        showSignupModal();
+    }
+}
+
 // Load questions from API
 async function loadQuestions() {
     try {
@@ -36,11 +182,42 @@ async function loadQuestions() {
         const loadedQuestions = await response.json();
         questions = shuffleArray(loadedQuestions);
         console.log(`Loaded ${questions.length} questions (randomized)`);
-        displayQuestion();
+
+        // Check if user has saved progress
+        const storedEmail = getStoredEmail();
+        if (storedEmail) {
+            const progress = await loadProgress(storedEmail);
+            if (progress && progress.currentQuestionIndex < questions.length) {
+                userEmail = storedEmail;
+                showWelcomeModal(storedEmail, progress);
+            } else {
+                displayQuestion();
+            }
+        } else {
+            displayQuestion();
+        }
     } catch (error) {
         console.error('Error loading questions:', error);
         questionText.textContent = 'Error loading questions. Please refresh the page.';
     }
+}
+
+// Restore progress from saved data
+function restoreProgress(progress) {
+    // Restore question order
+    const questionMap = new Map(questions.map(q => [q.id, q]));
+    questions = progress.questionOrder
+        .map(id => questionMap.get(id))
+        .filter(q => q !== undefined);
+
+    // Restore state
+    currentQuestionIndex = progress.currentQuestionIndex;
+    score = progress.score;
+    answered = progress.answered;
+    topicStats = progress.topicStats;
+
+    hideWelcomeModal();
+    displayQuestion();
 }
 
 // Display current question
@@ -154,6 +331,17 @@ async function handleAnswer(selectedOption) {
         feedback.classList.remove('hidden');
         nextBtn.classList.remove('hidden');
 
+        // Save progress to localStorage
+        saveToLocalStorage();
+
+        // Save to server if user has email
+        if (userEmail) {
+            await saveProgress(userEmail);
+        }
+
+        // Check if we should show signup modal (after 5 questions)
+        checkSignupTrigger();
+
     } catch (error) {
         console.error('Error checking answer:', error);
         feedbackText.textContent = 'Error checking answer. Please try again.';
@@ -209,14 +397,69 @@ function showResults() {
 }
 
 // Restart quiz
-document.getElementById('restartBtn').addEventListener('click', () => {
+document.getElementById('restartBtn').addEventListener('click', async () => {
     currentQuestionIndex = 0;
     score = 0;
     answered = 0;
     topicStats = {};
+    hasShownSignup = false;
     questions = shuffleArray(questions);
     resultsContainer.classList.add('hidden');
     quizContainer.classList.remove('hidden');
+
+    // Clear progress
+    clearLocalStorage();
+    if (userEmail) {
+        await resetProgress(userEmail);
+    }
+
+    displayQuestion();
+});
+
+// Signup form submission
+signupForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const email = emailInput.value.trim();
+
+    if (email) {
+        userEmail = email;
+        setStoredEmail(email);
+
+        // Save current progress to server
+        const success = await saveProgress(email);
+
+        if (success) {
+            hideSignupModal();
+            // Show a brief success message
+            feedbackText.textContent = '✓ Progress saved! You can now close and return anytime.';
+            feedback.classList.remove('incorrect');
+            feedback.classList.add('correct');
+            feedback.classList.remove('hidden');
+        } else {
+            alert('Failed to save progress. Please try again.');
+        }
+    }
+});
+
+// Welcome modal - Continue button
+document.getElementById('continueBtn').addEventListener('click', async () => {
+    const storedEmail = getStoredEmail();
+    if (storedEmail) {
+        const progress = await loadProgress(storedEmail);
+        if (progress) {
+            restoreProgress(progress);
+        }
+    }
+});
+
+// Welcome modal - Start Fresh button
+document.getElementById('startFreshBtn').addEventListener('click', async () => {
+    const storedEmail = getStoredEmail();
+    if (storedEmail) {
+        await resetProgress(storedEmail);
+    }
+    clearLocalStorage();
+    hideWelcomeModal();
     displayQuestion();
 });
 
