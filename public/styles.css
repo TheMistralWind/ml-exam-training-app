@@ -24,11 +24,37 @@ header {
     margin-bottom: 30px;
 }
 
+.header-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+}
+
 h1 {
     color: #333;
     font-size: 2rem;
-    margin-bottom: 20px;
+    margin: 0;
     text-align: center;
+    flex: 1;
+}
+
+.sign-in-btn {
+    padding: 10px 20px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-size: 0.95rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: transform 0.2s ease, opacity 0.2s ease;
+    white-space: nowrap;
+}
+
+.sign-in-btn:hover {
+    transform: translateY(-2px);
+    opacity: 0.9;
 }
 
 .progress-bar {
@@ -440,10 +466,29 @@ h1 {
     font-weight: 600;
     cursor: pointer;
     transition: transform 0.2s ease;
+    margin-bottom: 10px;
 }
 
 .submit-btn:hover {
     transform: translateY(-2px);
+}
+
+.skip-btn {
+    width: 100%;
+    padding: 12px;
+    background: transparent;
+    color: #666;
+    border: 2px solid #e0e0e0;
+    border-radius: 10px;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.skip-btn:hover {
+    background: #f8f9fa;
+    border-color: #ccc;
 }
 
 .privacy-note {
@@ -522,8 +567,20 @@ h1 {
         padding: 20px;
     }
 
+    .header-top {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 15px;
+    }
+
     h1 {
         font-size: 1.5rem;
+        text-align: center;
+    }
+
+    .sign-in-btn {
+        width: 100%;
+        padding: 12px;
     }
 
     .quiz-card {

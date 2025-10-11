@@ -9,7 +9,10 @@
 <body>
     <div class="container">
         <header>
-            <h1>Machine Learning Exam Training</h1>
+            <div class="header-top">
+                <h1>Machine Learning Exam Training</h1>
+                <button id="signInBtn" class="sign-in-btn hidden">Sign In</button>
+            </div>
             <div class="progress-bar">
                 <div class="progress-fill" id="progressBar"></div>
             </div>
@@ -89,7 +92,31 @@
                         >
                     </div>
                     <button type="submit" class="submit-btn">Save Progress & Continue</button>
+                    <button type="button" id="skipSignupBtn" class="skip-btn">Continue Without Saving</button>
                     <p class="privacy-note">We'll only use your email to save your progress. No spam, promise!</p>
+                </form>
+            </div>
+        </div>
+
+        <!-- Sign In Modal -->
+        <div id="signInModal" class="modal hidden">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h2>🔐 Sign In</h2>
+                    <p>Enter your email to load your saved progress</p>
+                </div>
+                <form id="signInForm" class="signup-form">
+                    <div class="form-group">
+                        <label for="signInEmailInput">Email Address</label>
+                        <input
+                            type="email"
+                            id="signInEmailInput"
+                            placeholder="your.email@example.com"
+                            required
+                        >
+                    </div>
+                    <button type="submit" class="submit-btn">Load Progress</button>
+                    <button type="button" id="cancelSignInBtn" class="skip-btn">Cancel</button>
                 </form>
             </div>
         </div>

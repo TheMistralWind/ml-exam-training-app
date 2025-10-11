@@ -39,8 +39,14 @@ const quizContainer = document.getElementById('quizContainer');
 const resultsContainer = document.getElementById('resultsContainer');
 const signupModal = document.getElementById('signupModal');
 const welcomeModal = document.getElementById('welcomeModal');
+const signInModal = document.getElementById('signInModal');
 const signupForm = document.getElementById('signupForm');
 const emailInput = document.getElementById('emailInput');
+const signInBtn = document.getElementById('signInBtn');
+const signInForm = document.getElementById('signInForm');
+const signInEmailInput = document.getElementById('signInEmailInput');
+const skipSignupBtn = document.getElementById('skipSignupBtn');
+const cancelSignInBtn = document.getElementById('cancelSignInBtn');
 
 // Shuffle array using Fisher-Yates algorithm
 function shuffleArray(array) {
@@ -156,6 +162,15 @@ function hideSignupModal() {
     signupModal.classList.add('hidden');
 }
 
+function showSignInModal() {
+    signInModal.classList.remove('hidden');
+}
+
+function hideSignInModal() {
+    signInModal.classList.add('hidden');
+    signInEmailInput.value = '';
+}
+
 function showWelcomeModal(email, progress) {
     document.getElementById('welcomeEmail').textContent = email;
     document.getElementById('progressInfo').textContent =
@@ -165,6 +180,15 @@ function showWelcomeModal(email, progress) {
 
 function hideWelcomeModal() {
     welcomeModal.classList.add('hidden');
+}
+
+// Update sign in button visibility
+function updateSignInButton() {
+    if (userEmail) {
+        signInBtn.classList.add('hidden');
+    } else {
+        signInBtn.classList.remove('hidden');
+    }
 }
 
 // Check if user should see signup modal
@@ -189,11 +213,14 @@ async function loadQuestions() {
             const progress = await loadProgress(storedEmail);
             if (progress && progress.currentQuestionIndex < questions.length) {
                 userEmail = storedEmail;
+                updateSignInButton();
                 showWelcomeModal(storedEmail, progress);
             } else {
+                updateSignInButton();
                 displayQuestion();
             }
         } else {
+            updateSignInButton();
             displayQuestion();
         }
     } catch (error) {
@@ -424,6 +451,7 @@ signupForm.addEventListener('submit', async (e) => {
     if (email) {
         userEmail = email;
         setStoredEmail(email);
+        updateSignInButton();
 
         // Save current progress to server
         const success = await saveProgress(email);
@@ -439,6 +467,42 @@ signupForm.addEventListener('submit', async (e) => {
             alert('Failed to save progress. Please try again.');
         }
     }
+});
+
+// Skip signup button
+skipSignupBtn.addEventListener('click', () => {
+    hideSignupModal();
+    // Continue with the quiz without saving
+});
+
+// Sign in button in header
+signInBtn.addEventListener('click', () => {
+    showSignInModal();
+});
+
+// Sign in form submission
+signInForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const email = signInEmailInput.value.trim();
+
+    if (email) {
+        const progress = await loadProgress(email);
+
+        if (progress && progress.currentQuestionIndex < questions.length) {
+            userEmail = email;
+            setStoredEmail(email);
+            updateSignInButton();
+            hideSignInModal();
+            showWelcomeModal(email, progress);
+        } else {
+            alert('No saved progress found for this email.');
+        }
+    }
+});
+
+// Cancel sign in
+cancelSignInBtn.addEventListener('click', () => {
+    hideSignInModal();
 });
 
 // Welcome modal - Continue button
