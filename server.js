@@ -12,11 +12,11 @@ console.log('✓ All modules loaded');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Initialize Supabase client
+// Initialize Supabase client (prefer service role if present)
 console.log('Initializing Supabase client...');
 const supabase = createClient(
   process.env.SUPABASE_URL || '',
-  process.env.SUPABASE_ANON_KEY || ''
+  process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY || ''
 );
 console.log('✓ Supabase client initialized');
 
@@ -80,7 +80,10 @@ app.post("/api/progress/save", async (req, res) => {
       .select("id")
       .single();
 
-    if (srcErr) throw srcErr;
+    if (srcErr) {
+      console.error('Supabase error (email_sources upsert):', srcErr);
+      throw srcErr;
+    }
 
     // 2️⃣ upsert email (case-insensitive)
     const { data: emailRow, error: emailErr } = await supabase
@@ -89,7 +92,10 @@ app.post("/api/progress/save", async (req, res) => {
       .select("id")
       .single();
 
-    if (emailErr) throw emailErr;
+    if (emailErr) {
+      console.error('Supabase error (emails upsert):', emailErr);
+      throw emailErr;
+    }
 
     // 3️⃣ upsert progress linked by email_id
     const { error: progressErr } = await supabase.from("user_progress").upsert({
@@ -102,15 +108,22 @@ app.post("/api/progress/save", async (req, res) => {
       updated_at: new Date().toISOString()
     }, { onConflict: "email_id" });
 
-    if (progressErr) throw progressErr;
+    if (progressErr) {
+      console.error('Supabase error (user_progress upsert):', progressErr);
+      throw progressErr;
+    }
 
     // 4️⃣ optional: log the event
-    await supabase.from("intake_events").insert({
+    const { error: eventsErr } = await supabase.from("intake_events").insert({
       email: cleanEmail,
       source_slug: source_slug || "ml-app",
       event: "progress_save",
       payload: progress
     });
+    if (eventsErr) {
+      console.error('Supabase error (intake_events insert):', eventsErr);
+      throw eventsErr;
+    }
 
     return res.json({ success: true, message: "Progress saved successfully" });
   } catch (err) {
