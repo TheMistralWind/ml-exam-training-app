@@ -76,7 +76,7 @@ app.post("/api/progress/save", async (req, res) => {
     // 1️⃣ ensure the source exists (for attribution)
     const { data: source, error: srcErr } = await supabase
       .from("email_sources")
-      .upsert({ slug: source_slug || "default", name: source_slug || "default" }, { onConflict: "slug" })
+      .upsert({ slug: source_slug || "ml-app", name: source_slug || "ML Training App" }, { onConflict: "slug" })
       .select("id")
       .single();
 
@@ -107,7 +107,7 @@ app.post("/api/progress/save", async (req, res) => {
     // 4️⃣ optional: log the event
     await supabase.from("intake_events").insert({
       email: cleanEmail,
-      source_slug: source_slug || "default",
+      source_slug: source_slug || "ml-app",
       event: "progress_save",
       payload: progress
     });

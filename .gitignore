@@ -5,3 +5,12 @@ npm-debug.log
 *.log
 .vscode/
 .idea/
+coverage/
+dist/
+build/
+.vercel/
+.netlify/
+.supabase/
+*.swp
+.env.local
+.env.*.local

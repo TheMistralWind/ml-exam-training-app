@@ -5,7 +5,7 @@ let answered = 0;
 let topicStats = {};
 let userEmail = null;
 let hasShownSignup = false;
-let sourceSlug = 'default';
+let sourceSlug = 'ml-app';
 
 // Capture source from URL parameter on page load
 (function initializeSource() {
