@@ -47,6 +47,8 @@ const signInForm = document.getElementById('signInForm');
 const signInEmailInput = document.getElementById('signInEmailInput');
 const skipSignupBtn = document.getElementById('skipSignupBtn');
 const cancelSignInBtn = document.getElementById('cancelSignInBtn');
+const donationButton = document.getElementById('donationButton');
+const donateBtn = document.getElementById('donateBtn');
 
 // Shuffle array using Fisher-Yates algorithm
 function shuffleArray(array) {
@@ -208,6 +210,38 @@ function checkSignupTrigger() {
     if (!userEmail && answered === 5 && !hasShownSignup) {
         hasShownSignup = true;
         showSignupModal();
+    }
+}
+
+// Show donation button after 10 questions
+function showDonationButton() {
+    if (answered >= 10) {
+        donationButton.classList.remove('hidden');
+    }
+}
+
+// Handle donation button click
+async function handleDonationClick() {
+    try {
+        // Log donation click to backend
+        const email = getStoredEmail();
+        await fetch('/api/donate/click', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email })
+        });
+
+        // Track in Plausible
+        if (window.plausible) {
+            window.plausible('Donate Click', { props: { provider: 'mobilepay' } });
+        }
+
+        // Open MobilePay link
+        window.open('https://qr.mobilepay.fi/box/fc157323-1b1a-4061-afd6-cfd06965788d/pay-in', '_blank', 'noopener');
+    } catch (error) {
+        console.error('Error logging donation click:', error);
+        // Still open the link even if logging fails
+        window.open('https://qr.mobilepay.fi/box/fc157323-1b1a-4061-afd6-cfd06965788d/pay-in', '_blank', 'noopener');
     }
 }
 
@@ -387,6 +421,9 @@ async function handleAnswer(selectedOption) {
         // Check if we should show signup modal (after 5 questions)
         checkSignupTrigger();
 
+        // Check if we should show donation button (after 10 questions)
+        showDonationButton();
+
     } catch (error) {
         console.error('Error checking answer:', error);
         feedbackText.textContent = 'Error checking answer. Please try again.';
@@ -559,6 +596,9 @@ document.getElementById('startFreshBtn').addEventListener('click', async () => {
         window.plausible('Resume Start Fresh');
     }
 });
+
+// Donation button event listener
+donateBtn.addEventListener('click', handleDonationClick);
 
 // Initialize app
 loadQuestions();

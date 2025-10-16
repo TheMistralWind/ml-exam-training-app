@@ -558,6 +558,49 @@ h1 {
     color: white;
 }
 
+/* Support Chip Styles */
+.support-chip {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    z-index: 100;
+    animation: slideInUp 0.3s ease;
+}
+
+@keyframes slideInUp {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.donate-btn {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border: none;
+    border-radius: 25px;
+    padding: 12px 20px;
+    font-size: 0.9rem;
+    font-weight: 600;
+    cursor: pointer;
+    box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+    transition: all 0.2s ease;
+    white-space: nowrap;
+}
+
+.donate-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+}
+
+.donate-btn:active {
+    transform: translateY(0);
+}
+
 @media (max-width: 600px) {
     body {
         padding: 10px;
@@ -609,5 +652,15 @@ h1 {
 
     .option-btn-large .btn-icon {
         font-size: 1.5rem;
+    }
+
+    .support-chip {
+        bottom: 15px;
+        right: 15px;
+    }
+
+    .donate-btn {
+        font-size: 0.8rem;
+        padding: 10px 16px;
     }
 }
