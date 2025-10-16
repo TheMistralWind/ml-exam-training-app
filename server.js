@@ -223,6 +223,32 @@ app.post('/api/progress/reset', async (req, res) => {
   }
 });
 
+// Log donation click
+app.post('/api/donate/click', async (req, res) => {
+  try {
+    const { email } = req.body;
+    const cleanEmail = email ? email.trim().toLowerCase() : null;
+
+    // Log donation click event
+    const { error } = await supabase.from('intake_events').insert({
+      email: cleanEmail,
+      source_slug: 'ml-app', // Default source for donation clicks
+      event: 'donate_click',
+      payload: { provider: 'mobilepay' }
+    });
+
+    if (error) {
+      console.error('Supabase error (donate_click):', error);
+      return res.status(500).json({ error: 'Failed to log donation click' });
+    }
+
+    res.json({ success: true, message: 'Donation click logged' });
+  } catch (error) {
+    console.error('Error logging donation click:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 // API Routes
 app.get('/api/questions', (req, res) => {
   // Return questions without correct answers (for security)
