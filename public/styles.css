@@ -153,11 +153,13 @@ h1 {
 .option-btn.correct {
     background: #d4edda;
     border-color: #28a745;
+    color: #155724;
 }
 
 .option-btn.incorrect {
     background: #f8d7da;
     border-color: #dc3545;
+    color: #721c24;
 }
 
 .option-label {
@@ -194,6 +196,16 @@ h1 {
     text-shadow: 0 0 2px rgba(0, 100, 255, 0.1);
 }
 
+.option-btn.correct .option-text {
+    color: #155724;
+    text-shadow: none;
+}
+
+.option-btn.incorrect .option-text {
+    color: #721c24;
+    text-shadow: none;
+}
+
 .feedback {
     margin-top: 25px;
     padding: 20px;
@@ -215,18 +227,27 @@ h1 {
 .feedback.correct {
     background: #d4edda;
     border: 2px solid #28a745;
+    color: #155724;
 }
 
 .feedback.incorrect {
     background: #f8d7da;
     border: 2px solid #dc3545;
+    color: #721c24;
 }
 
 .feedback-content p {
-    color: #e0e0e0;
     font-weight: 600;
     margin-bottom: 15px;
-    text-shadow: 0 0 3px rgba(0, 100, 255, 0.2);
+    text-shadow: none;
+}
+
+.feedback.correct .feedback-content p {
+    color: #155724;
+}
+
+.feedback.incorrect .feedback-content p {
+    color: #721c24;
 }
 
 .search-suggestion {
@@ -237,6 +258,15 @@ h1 {
     font-size: 0.9rem;
     font-weight: normal;
     margin-bottom: 10px;
+    text-shadow: none;
+}
+
+.feedback.correct .search-suggestion p {
+    color: #155724;
+}
+
+.feedback.incorrect .search-suggestion p {
+    color: #721c24;
 }
 
 .search-btn {
