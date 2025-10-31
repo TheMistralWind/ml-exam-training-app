@@ -6,6 +6,8 @@ let topicStats = {};
 let userEmail = null;
 let hasShownSignup = false;
 let sourceSlug = 'ml-app';
+let answerHistory = {}; // questionId -> { selectedOption, correct, correctAnswer, topic, legacy }
+let legacyAnsweredIds = new Set(); // questions answered before per-question history existed
 
 // Capture source from URL parameter on page load
 (function initializeSource() {
@@ -32,7 +34,6 @@ const feedbackText = document.getElementById('feedbackText');
 const searchSuggestion = document.getElementById('searchSuggestion');
 const searchLink = document.getElementById('searchLink');
 const nextBtn = document.getElementById('nextBtn');
-const backBtn = document.getElementById('backBtn');
 const questionCounter = document.getElementById('questionCounter');
 const scoreCounter = document.getElementById('scoreCounter');
 const progressBar = document.getElementById('progressBar');
@@ -60,9 +61,6 @@ function shuffleArray(array) {
     }
     return shuffled;
 }
-
-// Keep track of user answers for review mode
-let answerHistory = {}; // key: questionId => { selectedOption, correct, correctAnswer, topic }
 
 // LocalStorage helpers
 function saveToLocalStorage() {
@@ -296,6 +294,14 @@ function restoreProgress(progress) {
     topicStats = progress.topicStats;
     answerHistory = progress.answerHistory || {};
 
+    // Derive legacy set for first `answered` questions without answerHistory
+    legacyAnsweredIds = new Set();
+    const answeredCount = typeof progress.answered === 'number' ? progress.answered : 0;
+    for (let i = 0; i < Math.min(answeredCount, questions.length); i++) {
+        const q = questions[i];
+        if (q && !answerHistory[q.id]) legacyAnsweredIds.add(q.id);
+    }
+
     hideWelcomeModal();
     displayQuestion();
 }
@@ -312,7 +318,6 @@ function displayQuestion() {
     // Reset state
     feedback.classList.add('hidden');
     nextBtn.classList.add('hidden');
-    backBtn.classList.toggle('hidden', currentQuestionIndex === 0);
     searchSuggestion.classList.add('hidden');
 
     // Update question
@@ -344,7 +349,7 @@ function displayQuestion() {
         newBtn.addEventListener('click', () => handleAnswer(optionKey));
     });
 
-    // If this question was already answered, show review state (read-only)
+    // If already answered in this version, show review state
     const existing = answerHistory[question.id];
     if (existing) {
         const optionButtonsNow = optionsContainer.querySelectorAll('.option-btn');
@@ -357,21 +362,22 @@ function displayQuestion() {
                 btn.classList.add('correct');
             }
         });
-
-        // Feedback
         feedback.classList.remove('hidden');
         feedback.classList.toggle('correct', !!existing.correct);
         feedback.classList.toggle('incorrect', !existing.correct);
         feedbackText.textContent = existing.correct
             ? '✓ Correct! Well done!'
             : `✗ Incorrect. The correct answer is ${existing.correctAnswer}.`;
+        nextBtn.classList.remove('hidden');
+        return;
+    }
 
-        // Always show search suggestion in review too
-        const searchQuery = encodeURIComponent(`${existing.topic} ${question.question}`);
-        searchLink.href = `https://www.google.com/search?q=${searchQuery}`;
-        searchSuggestion.classList.remove('hidden');
-
-        // Show next button (unless at end will switch to results on click)
+    // If legacy-answered (pre-history), allow skipping and show Next immediately
+    if (legacyAnsweredIds.has(question.id)) {
+        feedback.classList.remove('hidden');
+        feedback.classList.remove('incorrect');
+        feedback.classList.add('correct');
+        feedbackText.textContent = 'Previously answered earlier. Score will not change here.';
         nextBtn.classList.remove('hidden');
     }
 }
@@ -397,18 +403,26 @@ async function handleAnswer(selectedOption) {
         });
 
         const result = await response.json();
-        answered++;
+        const questionId = question.id;
+        const isLegacy = legacyAnsweredIds.has(questionId) && !answerHistory[questionId];
+        if (!isLegacy) {
+            answered++;
+        }
 
         // Track topic statistics
         if (!topicStats[result.topic]) {
             topicStats[result.topic] = { correct: 0, total: 0 };
         }
-        topicStats[result.topic].total++;
+        if (!isLegacy) {
+            topicStats[result.topic].total++;
+        }
 
         // Show feedback
         if (result.correct) {
-            score++;
-            topicStats[result.topic].correct++;
+            if (!isLegacy) {
+                score++;
+                topicStats[result.topic].correct++;
+            }
             feedback.classList.remove('incorrect');
             feedback.classList.add('correct');
             feedbackText.textContent = '✓ Correct! Well done!';
@@ -422,11 +436,6 @@ async function handleAnswer(selectedOption) {
                     btn.classList.add('correct');
                 }
             });
-
-            // Show search suggestion even when correct
-            searchSuggestion.classList.remove('hidden');
-            const searchQuery = encodeURIComponent(`${result.topic} ${result.question}`);
-            searchLink.href = `https://www.google.com/search?q=${searchQuery}`;
         } else {
             feedback.classList.remove('correct');
             feedback.classList.add('incorrect');
@@ -451,12 +460,13 @@ async function handleAnswer(selectedOption) {
             searchLink.href = `https://www.google.com/search?q=${searchQuery}`;
         }
 
-        // Store in local answer history for review mode
-        answerHistory[question.id] = {
+        // Store in answer history (mark legacy), then show feedback
+        answerHistory[questionId] = {
             selectedOption,
             correct: !!result.correct,
             correctAnswer: result.correctAnswer,
-            topic: result.topic
+            topic: result.topic,
+            legacy: !!isLegacy
         };
 
         feedback.classList.remove('hidden');
@@ -487,14 +497,6 @@ async function handleAnswer(selectedOption) {
 nextBtn.addEventListener('click', () => {
     currentQuestionIndex++;
     displayQuestion();
-});
-
-// Move to previous question (review mode only)
-backBtn.addEventListener('click', () => {
-    if (currentQuestionIndex > 0) {
-        currentQuestionIndex--;
-        displayQuestion();
-    }
 });
 
 // Show final results
