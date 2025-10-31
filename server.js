@@ -35,24 +35,50 @@ function loadQuestions() {
     fs.createReadStream(path.join(__dirname, 'ML 120 questions for app.csv'))
       .pipe(csv())
       .on('data', (data) => {
-        // Build raw options
         const rawOptions = {
           A: data['Option A'],
           B: data['Option B'],
           C: data['Option C (Correct)'],
           D: data['Option D']
         };
-
         const correctLetter = (data['Correct Answer'] || '').trim();
         const correctText = rawOptions[correctLetter] || rawOptions.C;
 
-        // Sanitize duplicated correct texts in incorrect options
-        const sanitizedOptions = { ...rawOptions };
-        ['A', 'B', 'C', 'D'].forEach((key) => {
-          if (key !== correctLetter && sanitizedOptions[key] === correctText) {
-            sanitizedOptions[key] = 'This option is intentionally incorrect.';
-          }
-        });
+        function buildSanitizedOptions(raw, correctKey, correctVal) {
+          const sanitized = { ...raw };
+          const keys = ['A', 'B', 'C', 'D'];
+          const incorrectKeys = keys.filter(k => k !== correctKey);
+
+          const pool = incorrectKeys
+            .map(k => raw[k])
+            .filter(v => v && v.trim() && v.trim() !== correctVal);
+
+          const fallbackDistractors = [
+            'None of the above.',
+            'All of the above.',
+            'It depends on the specific dataset and setup.',
+            'Increase model complexity regardless of overfitting risk.',
+            'Reduce dimensionality without considering variance.',
+          ];
+
+          const used = new Set(keys.map(k => sanitized[k]).filter(Boolean));
+
+          incorrectKeys.forEach(k => {
+            const val = sanitized[k];
+            if (!val || val.trim() === '' || val === correctVal) {
+              let replacement = pool.find(p => !used.has(p));
+              if (!replacement) {
+                replacement = fallbackDistractors.find(p => !used.has(p)) || 'None of the above.';
+              }
+              sanitized[k] = replacement;
+              used.add(replacement);
+            }
+          });
+
+          return sanitized;
+        }
+
+        const sanitizedOptions = buildSanitizedOptions(rawOptions, correctLetter, correctText);
 
         results.push({
           id: data['Question ID'],
