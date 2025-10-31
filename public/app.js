@@ -36,6 +36,7 @@ const searchSuggestion = document.getElementById('searchSuggestion');
 const searchLink = document.getElementById('searchLink');
 const nextBtn = document.getElementById('nextBtn');
 const backBtn = document.getElementById('backBtn');
+const searchLinkInline = document.getElementById('searchLinkInline');
 const questionCounter = document.getElementById('questionCounter');
 const scoreCounter = document.getElementById('scoreCounter');
 const progressBar = document.getElementById('progressBar');
@@ -327,6 +328,11 @@ function displayQuestion() {
     // Update question
     questionText.textContent = question.question;
     topicBadge.textContent = question.topic;
+    // Update inline search link for current question
+    if (searchLinkInline) {
+        const q = encodeURIComponent(`${question.topic} ${question.question}`);
+        searchLinkInline.href = `https://www.google.com/search?q=${q}`;
+    }
 
     // Update counters
     questionCounter.textContent = `Question ${currentQuestionIndex + 1} of ${questions.length}`;

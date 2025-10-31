@@ -286,6 +286,10 @@ h1 {
     box-shadow: 0 0 8px rgba(0, 100, 255, 0.5);
 }
 
+.search-inline {
+    margin-bottom: 15px;
+}
+
 .next-btn {
     width: 100%;
     padding: 15px;
@@ -303,31 +307,6 @@ h1 {
 
 .next-btn:hover {
     background: linear-gradient(135deg, #004499 0%, #003366 100%);
-    box-shadow: 0 0 8px rgba(0, 100, 255, 0.5);
-}
-
-.nav-btns {
-    display: flex;
-    gap: 10px;
-    margin-top: 20px;
-}
-
-.back-btn {
-    flex: 1;
-    padding: 15px;
-    background: rgba(0, 0, 0, 0.6);
-    color: #e0e0e0;
-    border: 1px solid #0066cc;
-    border-radius: 10px;
-    font-size: 1.1rem;
-    font-weight: 600;
-    cursor: pointer;
-    transition: background 0.2s ease;
-    box-shadow: 0 0 5px rgba(0, 100, 255, 0.3);
-}
-
-.back-btn:hover {
-    background: rgba(0, 100, 255, 0.2);
     box-shadow: 0 0 8px rgba(0, 100, 255, 0.5);
 }
 

@@ -78,6 +78,24 @@ function loadQuestions() {
         ];
 
         // Sanitize each question using its topic pool, avoiding duplicates within the question
+        function shuffleOptions(options, correctLetter) {
+          const entries = ['A','B','C','D'].map((k) => ({ key: k, text: options[k] }));
+          // Fisher-Yates shuffle
+          for (let i = entries.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [entries[i], entries[j]] = [entries[j], entries[i]];
+          }
+          const newLetters = ['A','B','C','D'];
+          const newOptions = {};
+          let newCorrect = 'A';
+          entries.forEach((entry, idx) => {
+            const letter = newLetters[idx];
+            newOptions[letter] = entry.text;
+            if (entry.key === correctLetter) newCorrect = letter;
+          });
+          return { options: newOptions, correctLetter: newCorrect };
+        }
+
         questions = results.map((q) => {
           const correctLetter = q.correctAnswer || 'C';
           const correctText = q.options[correctLetter] || q.options.C;
@@ -107,11 +125,14 @@ function loadQuestions() {
             }
           }
 
-        return {
+          // Shuffle options and remap correct letter
+          const shuffled = shuffleOptions(sanitized, correctLetter);
+
+          return {
             id: q.id,
             question: q.question,
-            options: sanitized,
-            correctAnswer: correctLetter,
+            options: shuffled.options,
+            correctAnswer: shuffled.correctLetter,
             topic: q.topic
           };
         });
