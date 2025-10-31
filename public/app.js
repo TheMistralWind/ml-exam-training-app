@@ -10,6 +10,17 @@ let answerHistory = {}; // questionId -> { selectedOption, correct, correctAnswe
 let legacyAnsweredIds = new Set(); // questions answered before per-question history existed
 let legacyThreshold = 0; // number of leading questions considered answered before history existed
 
+// Utility: ensure Next button is visible on small screens
+function scrollNextIntoView() {
+    try {
+        if (nextBtn) {
+            nextBtn.scrollIntoView({ behavior: 'smooth', block: 'end' });
+        }
+    } catch (e) {
+        // noop
+    }
+}
+
 // Capture source from URL parameter on page load
 (function initializeSource() {
     const urlParams = new URLSearchParams(window.location.search);
@@ -379,6 +390,7 @@ function displayQuestion() {
             ? '✓ Correct! Well done!'
             : `✗ Incorrect. The correct answer is ${existing.correctAnswer}.`;
         nextBtn.classList.remove('hidden');
+        scrollNextIntoView();
         return;
     }
 
@@ -390,6 +402,7 @@ function displayQuestion() {
         feedback.classList.add('correct');
         feedbackText.textContent = 'Previously answered earlier. Score will not change here.';
         nextBtn.classList.remove('hidden');
+        scrollNextIntoView();
     }
 }
 
@@ -482,6 +495,8 @@ async function handleAnswer(selectedOption) {
 
         feedback.classList.remove('hidden');
         nextBtn.classList.remove('hidden');
+        // After layout updates, scroll Next button into view (mobile convenience)
+        setTimeout(scrollNextIntoView, 50);
 
         // Save progress to localStorage
         saveToLocalStorage();
