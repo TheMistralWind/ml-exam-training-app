@@ -25,6 +25,18 @@ function scrollNextIntoView() {
     }
 }
 
+// Utility: scroll the current question card to the top of the viewport
+function scrollQuestionToTop() {
+    try {
+        const card = document.querySelector('.quiz-card');
+        if (card) {
+            card.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+    } catch (e) {
+        // noop
+    }
+}
+
 // Capture source from URL parameter on page load
 (function initializeSource() {
     const urlParams = new URLSearchParams(window.location.search);
@@ -333,6 +345,9 @@ function displayQuestion() {
     }
 
     const question = questions[currentQuestionIndex];
+
+    // Ensure the question card starts at top for new screens (Next/Back)
+    scrollQuestionToTop();
 
     // Reset state
     feedback.classList.add('hidden');
