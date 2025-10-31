@@ -8,6 +8,7 @@ let hasShownSignup = false;
 let sourceSlug = 'ml-app';
 let answerHistory = {}; // questionId -> { selectedOption, correct, correctAnswer, topic, legacy }
 let legacyAnsweredIds = new Set(); // questions answered before per-question history existed
+let legacyThreshold = 0; // number of leading questions considered answered before history existed
 
 // Capture source from URL parameter on page load
 (function initializeSource() {
@@ -34,6 +35,7 @@ const feedbackText = document.getElementById('feedbackText');
 const searchSuggestion = document.getElementById('searchSuggestion');
 const searchLink = document.getElementById('searchLink');
 const nextBtn = document.getElementById('nextBtn');
+const backBtn = document.getElementById('backBtn');
 const questionCounter = document.getElementById('questionCounter');
 const scoreCounter = document.getElementById('scoreCounter');
 const progressBar = document.getElementById('progressBar');
@@ -294,10 +296,11 @@ function restoreProgress(progress) {
     topicStats = progress.topicStats;
     answerHistory = progress.answerHistory || {};
 
-    // Derive legacy set for first `answered` questions without answerHistory
+    // Derive legacy set and threshold for first `answered` questions without answerHistory
     legacyAnsweredIds = new Set();
     const answeredCount = typeof progress.answered === 'number' ? progress.answered : 0;
-    for (let i = 0; i < Math.min(answeredCount, questions.length); i++) {
+    legacyThreshold = Math.max(0, Math.min(questions.length, answeredCount));
+    for (let i = 0; i < legacyThreshold; i++) {
         const q = questions[i];
         if (q && !answerHistory[q.id]) legacyAnsweredIds.add(q.id);
     }
@@ -319,6 +322,7 @@ function displayQuestion() {
     feedback.classList.add('hidden');
     nextBtn.classList.add('hidden');
     searchSuggestion.classList.add('hidden');
+    if (backBtn) backBtn.classList.toggle('hidden', currentQuestionIndex === 0);
 
     // Update question
     questionText.textContent = question.question;
@@ -373,7 +377,8 @@ function displayQuestion() {
     }
 
     // If legacy-answered (pre-history), allow skipping and show Next immediately
-    if (legacyAnsweredIds.has(question.id)) {
+    const isLegacyIndex = currentQuestionIndex < legacyThreshold && !answerHistory[question.id];
+    if (isLegacyIndex) {
         feedback.classList.remove('hidden');
         feedback.classList.remove('incorrect');
         feedback.classList.add('correct');
@@ -404,7 +409,7 @@ async function handleAnswer(selectedOption) {
 
         const result = await response.json();
         const questionId = question.id;
-        const isLegacy = legacyAnsweredIds.has(questionId) && !answerHistory[questionId];
+        const isLegacy = (currentQuestionIndex < legacyThreshold) && !answerHistory[questionId];
         if (!isLegacy) {
             answered++;
         }
@@ -498,6 +503,16 @@ nextBtn.addEventListener('click', () => {
     currentQuestionIndex++;
     displayQuestion();
 });
+
+// Move to previous question
+if (backBtn) {
+    backBtn.addEventListener('click', () => {
+        if (currentQuestionIndex > 0) {
+            currentQuestionIndex--;
+            displayQuestion();
+        }
+    });
+}
 
 // Show final results
 function showResults() {
