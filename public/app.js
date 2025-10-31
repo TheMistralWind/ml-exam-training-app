@@ -29,9 +29,16 @@ function scrollNextIntoView() {
 function scrollQuestionToTop() {
     try {
         const card = document.querySelector('.quiz-card');
-        if (card) {
-            card.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        }
+        if (!card) return;
+        // Compute absolute Y and do robust scroll with retry to handle mobile address bar
+        const y = (window.pageYOffset || document.documentElement.scrollTop || 0) + card.getBoundingClientRect().top - 8;
+        window.scrollTo({ top: y, left: 0, behavior: 'smooth' });
+        // Retry after rendering to ensure final position
+        requestAnimationFrame(() => {
+            setTimeout(() => {
+                window.scrollTo({ top: y, left: 0, behavior: 'auto' });
+            }, 120);
+        });
     } catch (e) {
         // noop
     }

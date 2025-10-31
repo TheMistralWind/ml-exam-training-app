@@ -669,13 +669,10 @@ h1 {
     color: #e0e0e0;
 }
 
-/* Support Chip Styles */
+/* Support Chip Styles - inline under Next */
 .support-chip {
-    position: fixed;
-    bottom: 20px;
-    right: 20px;
-    z-index: 100;
-    animation: slideInUp 0.3s ease;
+    position: static;
+    margin-top: 12px;
 }
 
 @keyframes slideInUp {
@@ -766,22 +763,16 @@ h1 {
     }
 
     .support-chip {
-        bottom: 80px; /* lift above Next/footer on mobile */
-        right: 15px;
+        margin-top: 12px;
     }
 
     .donate-btn {
-        font-size: 0.8rem;
-        padding: 10px 16px;
+        font-size: 0.9rem;
+        padding: 12px 16px;
     }
 
     .back-btn {
         padding: 18px; /* larger touch target */
         font-size: 1.15rem;
-    }
-
-    /* Ensure content can scroll past the floating chip */
-    .container {
-        padding-bottom: 120px;
     }
 }
