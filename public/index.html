@@ -34,6 +34,10 @@
                 <div class="topic-badge" id="topicBadge">Topic</div>
                 <h2 class="question" id="questionText">Loading questions...</h2>
 
+                <div class="search-inline">
+                    <a id="searchLinkInline" href="#" target="_blank" class="search-btn">Search this on Google</a>
+                </div>
+
                 <div class="options" id="optionsContainer">
                     <button class="option-btn" data-option="A">
                         <span class="option-label">A</span>
@@ -63,7 +67,17 @@
                     </div>
                 </div>
 
-                <button id="nextBtn" class="next-btn hidden">Next Question</button>
+                <div class="nav-btns">
+                    <button id="backBtn" class="back-btn hidden">Back</button>
+                    <button id="nextBtn" class="next-btn hidden">Next Question</button>
+                </div>
+
+                <!-- Donation Button Inline -->
+                <div id="donationButton" class="support-chip hidden">
+                    <button id="donateBtn" class="donate-btn">
+                        Buy the developer a coffee or a student lunch ❤️
+                    </button>
+                </div>
             </div>
         </main>
 
@@ -157,13 +171,6 @@
         <footer class="footer">
             <p>Made by <a href="https://www.deuslabs.ai/" target="_blank" rel="noopener noreferrer">DeusLabs.ai</a></p>
         </footer>
-    </div>
-
-    <!-- Donation Button -->
-    <div id="donationButton" class="support-chip hidden">
-        <button id="donateBtn" class="donate-btn">
-            Buy the developer a coffee or a student lunch ❤️
-        </button>
     </div>
 
     <script src="app.js"></script>

@@ -6,6 +6,44 @@ let topicStats = {};
 let userEmail = null;
 let hasShownSignup = false;
 let sourceSlug = 'ml-app';
+let answerHistory = {}; // questionId -> { selectedOption, correct, correctAnswer, topic, legacy }
+let legacyAnsweredIds = new Set(); // questions answered before per-question history existed
+let legacyThreshold = 0; // number of leading questions considered answered before history existed
+let lastNav = null; // 'next' | 'back' | null
+
+// Utility: ensure Next button is visible on small screens
+function scrollNextIntoView() {
+    try {
+        if (nextBtn) {
+            nextBtn.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            // Nudge a bit more to account for floating chip height
+            setTimeout(() => {
+                window.scrollBy({ top: 80, left: 0, behavior: 'smooth' });
+            }, 120);
+        }
+    } catch (e) {
+        // noop
+    }
+}
+
+// Utility: scroll the current question card to the top of the viewport
+function scrollQuestionToTop() {
+    try {
+        const card = document.querySelector('.quiz-card');
+        if (!card) return;
+        // Compute absolute Y and do robust scroll with retry to handle mobile address bar
+        const y = (window.pageYOffset || document.documentElement.scrollTop || 0) + card.getBoundingClientRect().top - 8;
+        window.scrollTo({ top: y, left: 0, behavior: 'smooth' });
+        // Retry after rendering to ensure final position
+        requestAnimationFrame(() => {
+            setTimeout(() => {
+                window.scrollTo({ top: y, left: 0, behavior: 'auto' });
+            }, 120);
+        });
+    } catch (e) {
+        // noop
+    }
+}
 
 // Capture source from URL parameter on page load
 (function initializeSource() {
@@ -32,6 +70,8 @@ const feedbackText = document.getElementById('feedbackText');
 const searchSuggestion = document.getElementById('searchSuggestion');
 const searchLink = document.getElementById('searchLink');
 const nextBtn = document.getElementById('nextBtn');
+const backBtn = document.getElementById('backBtn');
+const searchLinkInline = document.getElementById('searchLinkInline');
 const questionCounter = document.getElementById('questionCounter');
 const scoreCounter = document.getElementById('scoreCounter');
 const progressBar = document.getElementById('progressBar');
@@ -67,7 +107,8 @@ function saveToLocalStorage() {
         score,
         answered,
         topicStats,
-        questionOrder: questions.map(q => q.id)
+        questionOrder: questions.map(q => q.id),
+        answerHistory
     };
     localStorage.setItem('quizProgress', JSON.stringify(progress));
 }
@@ -100,7 +141,8 @@ async function saveProgress(email) {
             score,
             answered,
             topicStats,
-            questionOrder: questions.map(q => q.id)
+            questionOrder: questions.map(q => q.id),
+            answerHistory
         };
 
         const response = await fetch('/api/progress/save', {
@@ -288,6 +330,16 @@ function restoreProgress(progress) {
     score = progress.score;
     answered = progress.answered;
     topicStats = progress.topicStats;
+    answerHistory = progress.answerHistory || {};
+
+    // Derive legacy set and threshold for first `answered` questions without answerHistory
+    legacyAnsweredIds = new Set();
+    const answeredCount = typeof progress.answered === 'number' ? progress.answered : 0;
+    legacyThreshold = Math.max(0, Math.min(questions.length, answeredCount));
+    for (let i = 0; i < legacyThreshold; i++) {
+        const q = questions[i];
+        if (q && !answerHistory[q.id]) legacyAnsweredIds.add(q.id);
+    }
 
     hideWelcomeModal();
     displayQuestion();
@@ -306,10 +358,16 @@ function displayQuestion() {
     feedback.classList.add('hidden');
     nextBtn.classList.add('hidden');
     searchSuggestion.classList.add('hidden');
+    if (backBtn) backBtn.classList.toggle('hidden', currentQuestionIndex === 0);
 
     // Update question
     questionText.textContent = question.question;
     topicBadge.textContent = question.topic;
+    // Update inline search link for current question
+    if (searchLinkInline) {
+        const q = encodeURIComponent(`${question.topic} ${question.question}`);
+        searchLinkInline.href = `https://www.google.com/search?q=${q}`;
+    }
 
     // Update counters
     questionCounter.textContent = `Question ${currentQuestionIndex + 1} of ${questions.length}`;
@@ -335,6 +393,47 @@ function displayQuestion() {
 
         newBtn.addEventListener('click', () => handleAnswer(optionKey));
     });
+
+    // If already answered in this version, show review state
+    const existing = answerHistory[question.id];
+    if (existing) {
+        const optionButtonsNow = optionsContainer.querySelectorAll('.option-btn');
+        optionButtonsNow.forEach(btn => {
+            btn.disabled = true;
+            if (btn.dataset.option === existing.selectedOption) {
+                btn.classList.add(existing.correct ? 'correct' : 'incorrect');
+            }
+            if (!existing.correct && btn.dataset.option === existing.correctAnswer) {
+                btn.classList.add('correct');
+            }
+        });
+        feedback.classList.remove('hidden');
+        feedback.classList.toggle('correct', !!existing.correct);
+        feedback.classList.toggle('incorrect', !existing.correct);
+        feedbackText.textContent = existing.correct
+            ? '✓ Correct! Well done!'
+            : `✗ Incorrect. The correct answer is ${existing.correctAnswer}.`;
+        nextBtn.classList.remove('hidden');
+        scrollNextIntoView();
+        return;
+    }
+
+    // If legacy-answered (pre-history), allow skipping and show Next immediately
+    const isLegacyIndex = currentQuestionIndex < legacyThreshold && !answerHistory[question.id];
+    if (isLegacyIndex) {
+        feedback.classList.remove('hidden');
+        feedback.classList.remove('incorrect');
+        feedback.classList.add('correct');
+        feedbackText.textContent = 'Previously answered earlier. Score will not change here.';
+        nextBtn.classList.remove('hidden');
+        scrollNextIntoView();
+    }
+
+    // Scroll to top only when moving forward to a new question
+    if (lastNav === 'next' && !existing && !isLegacyIndex) {
+        scrollQuestionToTop();
+    }
+    lastNav = null;
 }
 
 // Handle answer selection
@@ -358,18 +457,26 @@ async function handleAnswer(selectedOption) {
         });
 
         const result = await response.json();
-        answered++;
+        const questionId = question.id;
+        const isLegacy = (currentQuestionIndex < legacyThreshold) && !answerHistory[questionId];
+        if (!isLegacy) {
+            answered++;
+        }
 
         // Track topic statistics
         if (!topicStats[result.topic]) {
             topicStats[result.topic] = { correct: 0, total: 0 };
         }
-        topicStats[result.topic].total++;
+        if (!isLegacy) {
+            topicStats[result.topic].total++;
+        }
 
         // Show feedback
         if (result.correct) {
-            score++;
-            topicStats[result.topic].correct++;
+            if (!isLegacy) {
+                score++;
+                topicStats[result.topic].correct++;
+            }
             feedback.classList.remove('incorrect');
             feedback.classList.add('correct');
             feedbackText.textContent = '✓ Correct! Well done!';
@@ -407,8 +514,19 @@ async function handleAnswer(selectedOption) {
             searchLink.href = `https://www.google.com/search?q=${searchQuery}`;
         }
 
+        // Store in answer history (mark legacy), then show feedback
+        answerHistory[questionId] = {
+            selectedOption,
+            correct: !!result.correct,
+            correctAnswer: result.correctAnswer,
+            topic: result.topic,
+            legacy: !!isLegacy
+        };
+
         feedback.classList.remove('hidden');
         nextBtn.classList.remove('hidden');
+        // After layout updates, scroll Next button into view (mobile convenience)
+        setTimeout(scrollNextIntoView, 50);
 
         // Save progress to localStorage
         saveToLocalStorage();
@@ -433,9 +551,21 @@ async function handleAnswer(selectedOption) {
 
 // Move to next question
 nextBtn.addEventListener('click', () => {
+    lastNav = 'next';
     currentQuestionIndex++;
     displayQuestion();
 });
+
+// Move to previous question
+if (backBtn) {
+    backBtn.addEventListener('click', () => {
+        if (currentQuestionIndex > 0) {
+            lastNav = 'back';
+            currentQuestionIndex--;
+            displayQuestion();
+        }
+    });
+}
 
 // Show final results
 function showResults() {

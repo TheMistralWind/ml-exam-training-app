@@ -35,6 +35,7 @@ function loadQuestions() {
     fs.createReadStream(path.join(__dirname, 'ML 120 questions for app.csv'))
       .pipe(csv())
       .on('data', (data) => {
+        // Push raw; we'll sanitize with cross-question pools in the end phase
         results.push({
           id: data['Question ID'],
           question: data['Question'],
@@ -44,12 +45,97 @@ function loadQuestions() {
             C: data['Option C (Correct)'],
             D: data['Option D']
           },
-          correctAnswer: data['Correct Answer'],
+          correctAnswer: (data['Correct Answer'] || '').trim(),
           topic: data['Topic']
         });
       })
       .on('end', () => {
-        questions = results;
+        // Build per-topic distractor pools from all other questions' incorrect options
+        const topicToPool = new Map();
+        for (const q of results) {
+          const pool = topicToPool.get(q.topic) || new Set();
+          const correctLetter = q.correctAnswer || 'C';
+          const correctText = q.options[correctLetter] || q.options.C;
+          for (const key of ['A', 'B', 'C', 'D']) {
+            if (key === correctLetter) continue;
+            const opt = q.options[key];
+            if (!opt) continue;
+            const trimmed = String(opt).trim();
+            if (!trimmed) continue;
+            if (trimmed === correctText) continue;
+            pool.add(trimmed);
+          }
+          topicToPool.set(q.topic, pool);
+        }
+
+        // Fallback generic distractors
+        const fallbackDistractors = [
+          'None of the above.',
+          'All of the above.',
+          'It depends on the specific dataset and setup.',
+          'Increase model complexity regardless of overfitting risk.',
+          'Reduce dimensionality without considering variance.'
+        ];
+
+        // Sanitize each question using its topic pool, avoiding duplicates within the question
+        function shuffleOptions(options, correctLetter) {
+          const entries = ['A','B','C','D'].map((k) => ({ key: k, text: options[k] }));
+          // Fisher-Yates shuffle
+          for (let i = entries.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [entries[i], entries[j]] = [entries[j], entries[i]];
+          }
+          const newLetters = ['A','B','C','D'];
+          const newOptions = {};
+          let newCorrect = 'A';
+          entries.forEach((entry, idx) => {
+            const letter = newLetters[idx];
+            newOptions[letter] = entry.text;
+            if (entry.key === correctLetter) newCorrect = letter;
+          });
+          return { options: newOptions, correctLetter: newCorrect };
+        }
+
+        questions = results.map((q) => {
+          const correctLetter = q.correctAnswer || 'C';
+          const correctText = q.options[correctLetter] || q.options.C;
+          const used = new Set();
+          const sanitized = { ...q.options };
+          // Mark initially used values
+          for (const key of ['A', 'B', 'C', 'D']) {
+            if (sanitized[key]) used.add(sanitized[key]);
+          }
+          const topicPool = Array.from(topicToPool.get(q.topic) || []);
+
+          function pickReplacement() {
+            // Prefer topic pool items not used yet
+            let rep = topicPool.find(v => v !== correctText && !used.has(v));
+            if (!rep) {
+              rep = fallbackDistractors.find(v => v !== correctText && !used.has(v)) || 'None of the above.';
+            }
+            used.add(rep);
+            return rep;
+          }
+
+          for (const key of ['A', 'B', 'C', 'D']) {
+            if (key === correctLetter) continue;
+            const val = sanitized[key];
+            if (!val || String(val).trim() === '' || val === correctText) {
+              sanitized[key] = pickReplacement();
+            }
+          }
+
+          // Shuffle options and remap correct letter
+          const shuffled = shuffleOptions(sanitized, correctLetter);
+
+          return {
+            id: q.id,
+            question: q.question,
+            options: shuffled.options,
+            correctAnswer: shuffled.correctLetter,
+            topic: q.topic
+          };
+        });
         console.log(`✓ Loaded ${questions.length} questions`);
         resolve();
       })
@@ -105,6 +191,7 @@ app.post("/api/progress/save", async (req, res) => {
       answered: progress.answered,
       topic_stats: progress.topicStats,
       question_order: progress.questionOrder,
+      answer_history: progress.answerHistory || {},
       updated_at: new Date().toISOString()
     }, { onConflict: "email_id" });
 
@@ -173,6 +260,7 @@ app.get('/api/progress/:email', async (req, res) => {
         answered: data.answered,
         topicStats: data.topic_stats,
         questionOrder: data.question_order,
+        answerHistory: data.answer_history || {},
         updatedAt: data.updated_at
       }
     });

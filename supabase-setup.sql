@@ -17,7 +17,7 @@ CREATE TABLE IF NOT EXISTS emails (
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
--- 3️⃣ User Progress Table (linked to emails)
+-- 3️⃣ User Progress Table (linked to emails)
 CREATE TABLE IF NOT EXISTS user_progress (
     id BIGSERIAL PRIMARY KEY,
     email_id BIGINT UNIQUE NOT NULL REFERENCES emails(id) ON DELETE CASCADE,
@@ -26,6 +26,7 @@ CREATE TABLE IF NOT EXISTS user_progress (
     answered INTEGER NOT NULL DEFAULT 0,
     topic_stats JSONB NOT NULL DEFAULT '{}',
     question_order JSONB NOT NULL DEFAULT '[]',
+    answer_history JSONB NOT NULL DEFAULT '{}',
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
