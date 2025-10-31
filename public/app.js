@@ -14,7 +14,11 @@ let legacyThreshold = 0; // number of leading questions considered answered befo
 function scrollNextIntoView() {
     try {
         if (nextBtn) {
-            nextBtn.scrollIntoView({ behavior: 'smooth', block: 'end' });
+            nextBtn.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            // Nudge a bit more to account for floating chip height
+            setTimeout(() => {
+                window.scrollBy({ top: 80, left: 0, behavior: 'smooth' });
+            }, 120);
         }
     } catch (e) {
         // noop

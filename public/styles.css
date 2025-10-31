@@ -766,7 +766,7 @@ h1 {
     }
 
     .support-chip {
-        bottom: 15px;
+        bottom: 80px; /* lift above Next/footer on mobile */
         right: 15px;
     }
 
@@ -778,5 +778,10 @@ h1 {
     .back-btn {
         padding: 18px; /* larger touch target */
         font-size: 1.15rem;
+    }
+
+    /* Ensure content can scroll past the floating chip */
+    .container {
+        padding-bottom: 120px;
     }
 }
