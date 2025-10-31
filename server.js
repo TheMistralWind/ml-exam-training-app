@@ -35,61 +35,86 @@ function loadQuestions() {
     fs.createReadStream(path.join(__dirname, 'ML 120 questions for app.csv'))
       .pipe(csv())
       .on('data', (data) => {
-        const rawOptions = {
-          A: data['Option A'],
-          B: data['Option B'],
-          C: data['Option C (Correct)'],
-          D: data['Option D']
-        };
-        const correctLetter = (data['Correct Answer'] || '').trim();
-        const correctText = rawOptions[correctLetter] || rawOptions.C;
-
-        function buildSanitizedOptions(raw, correctKey, correctVal) {
-          const sanitized = { ...raw };
-          const keys = ['A', 'B', 'C', 'D'];
-          const incorrectKeys = keys.filter(k => k !== correctKey);
-
-          const pool = incorrectKeys
-            .map(k => raw[k])
-            .filter(v => v && v.trim() && v.trim() !== correctVal);
-
-          const fallbackDistractors = [
-            'None of the above.',
-            'All of the above.',
-            'It depends on the specific dataset and setup.',
-            'Increase model complexity regardless of overfitting risk.',
-            'Reduce dimensionality without considering variance.',
-          ];
-
-          const used = new Set(keys.map(k => sanitized[k]).filter(Boolean));
-
-          incorrectKeys.forEach(k => {
-            const val = sanitized[k];
-            if (!val || val.trim() === '' || val === correctVal) {
-              let replacement = pool.find(p => !used.has(p));
-              if (!replacement) {
-                replacement = fallbackDistractors.find(p => !used.has(p)) || 'None of the above.';
-              }
-              sanitized[k] = replacement;
-              used.add(replacement);
-            }
-          });
-
-          return sanitized;
-        }
-
-        const sanitizedOptions = buildSanitizedOptions(rawOptions, correctLetter, correctText);
-
+        // Push raw; we'll sanitize with cross-question pools in the end phase
         results.push({
           id: data['Question ID'],
           question: data['Question'],
-          options: sanitizedOptions,
-          correctAnswer: correctLetter,
+          options: {
+            A: data['Option A'],
+            B: data['Option B'],
+            C: data['Option C (Correct)'],
+            D: data['Option D']
+          },
+          correctAnswer: (data['Correct Answer'] || '').trim(),
           topic: data['Topic']
         });
       })
       .on('end', () => {
-        questions = results;
+        // Build per-topic distractor pools from all other questions' incorrect options
+        const topicToPool = new Map();
+        for (const q of results) {
+          const pool = topicToPool.get(q.topic) || new Set();
+          const correctLetter = q.correctAnswer || 'C';
+          const correctText = q.options[correctLetter] || q.options.C;
+          for (const key of ['A', 'B', 'C', 'D']) {
+            if (key === correctLetter) continue;
+            const opt = q.options[key];
+            if (!opt) continue;
+            const trimmed = String(opt).trim();
+            if (!trimmed) continue;
+            if (trimmed === correctText) continue;
+            pool.add(trimmed);
+          }
+          topicToPool.set(q.topic, pool);
+        }
+
+        // Fallback generic distractors
+        const fallbackDistractors = [
+          'None of the above.',
+          'All of the above.',
+          'It depends on the specific dataset and setup.',
+          'Increase model complexity regardless of overfitting risk.',
+          'Reduce dimensionality without considering variance.'
+        ];
+
+        // Sanitize each question using its topic pool, avoiding duplicates within the question
+        questions = results.map((q) => {
+          const correctLetter = q.correctAnswer || 'C';
+          const correctText = q.options[correctLetter] || q.options.C;
+          const used = new Set();
+          const sanitized = { ...q.options };
+          // Mark initially used values
+          for (const key of ['A', 'B', 'C', 'D']) {
+            if (sanitized[key]) used.add(sanitized[key]);
+          }
+          const topicPool = Array.from(topicToPool.get(q.topic) || []);
+
+          function pickReplacement() {
+            // Prefer topic pool items not used yet
+            let rep = topicPool.find(v => v !== correctText && !used.has(v));
+            if (!rep) {
+              rep = fallbackDistractors.find(v => v !== correctText && !used.has(v)) || 'None of the above.';
+            }
+            used.add(rep);
+            return rep;
+          }
+
+          for (const key of ['A', 'B', 'C', 'D']) {
+            if (key === correctLetter) continue;
+            const val = sanitized[key];
+            if (!val || String(val).trim() === '' || val === correctText) {
+              sanitized[key] = pickReplacement();
+            }
+          }
+
+        return {
+            id: q.id,
+            question: q.question,
+            options: sanitized,
+            correctAnswer: correctLetter,
+            topic: q.topic
+          };
+        });
         console.log(`✓ Loaded ${questions.length} questions`);
         resolve();
       })
