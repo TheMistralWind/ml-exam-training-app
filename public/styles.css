@@ -699,7 +699,9 @@ h1 {
     cursor: pointer;
     box-shadow: 0 4px 15px rgba(0, 100, 255, 0.2);
     transition: all 0.2s ease;
-    white-space: nowrap;
+    white-space: normal; /* allow wrapping */
+    overflow-wrap: anywhere; /* allow breaking long phrases */
+    text-align: center;
     max-width: 420px;
     width: 100%;
 }
