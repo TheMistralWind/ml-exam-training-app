@@ -9,6 +9,7 @@ let sourceSlug = 'ml-app';
 let answerHistory = {}; // questionId -> { selectedOption, correct, correctAnswer, topic, legacy }
 let legacyAnsweredIds = new Set(); // questions answered before per-question history existed
 let legacyThreshold = 0; // number of leading questions considered answered before history existed
+let lastNav = null; // 'next' | 'back' | null
 
 // Utility: ensure Next button is visible on small screens
 function scrollNextIntoView() {
@@ -353,9 +354,6 @@ function displayQuestion() {
 
     const question = questions[currentQuestionIndex];
 
-    // Ensure the question card starts at top for new screens (Next/Back)
-    scrollQuestionToTop();
-
     // Reset state
     feedback.classList.add('hidden');
     nextBtn.classList.add('hidden');
@@ -430,6 +428,12 @@ function displayQuestion() {
         nextBtn.classList.remove('hidden');
         scrollNextIntoView();
     }
+
+    // Scroll to top only when moving forward to a new question
+    if (lastNav === 'next' && !existing && !isLegacyIndex) {
+        scrollQuestionToTop();
+    }
+    lastNav = null;
 }
 
 // Handle answer selection
@@ -547,6 +551,7 @@ async function handleAnswer(selectedOption) {
 
 // Move to next question
 nextBtn.addEventListener('click', () => {
+    lastNav = 'next';
     currentQuestionIndex++;
     displayQuestion();
 });
@@ -555,6 +560,7 @@ nextBtn.addEventListener('click', () => {
 if (backBtn) {
     backBtn.addEventListener('click', () => {
         if (currentQuestionIndex > 0) {
+            lastNav = 'back';
             currentQuestionIndex--;
             displayQuestion();
         }
