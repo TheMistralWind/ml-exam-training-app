@@ -119,6 +119,7 @@ app.post("/api/progress/save", async (req, res) => {
       answered: progress.answered,
       topic_stats: progress.topicStats,
       question_order: progress.questionOrder,
+      answer_history: progress.answerHistory || {},
       updated_at: new Date().toISOString()
     }, { onConflict: "email_id" });
 
@@ -187,6 +188,7 @@ app.get('/api/progress/:email', async (req, res) => {
         answered: data.answered,
         topicStats: data.topic_stats,
         questionOrder: data.question_order,
+        answerHistory: data.answer_history || {},
         updatedAt: data.updated_at
       }
     });

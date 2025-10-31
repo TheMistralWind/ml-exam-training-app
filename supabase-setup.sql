@@ -26,6 +26,7 @@ CREATE TABLE IF NOT EXISTS user_progress (
     answered INTEGER NOT NULL DEFAULT 0,
     topic_stats JSONB NOT NULL DEFAULT '{}',
     question_order JSONB NOT NULL DEFAULT '[]',
+    answer_history JSONB NOT NULL DEFAULT '{}',
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );

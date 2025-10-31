@@ -105,7 +105,8 @@ async function saveProgress(email) {
             score,
             answered,
             topicStats,
-            questionOrder: questions.map(q => q.id)
+            questionOrder: questions.map(q => q.id),
+            answerHistory
         };
 
         const response = await fetch('/api/progress/save', {
