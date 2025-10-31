@@ -35,16 +35,30 @@ function loadQuestions() {
     fs.createReadStream(path.join(__dirname, 'ML 120 questions for app.csv'))
       .pipe(csv())
       .on('data', (data) => {
+        // Build raw options
+        const rawOptions = {
+          A: data['Option A'],
+          B: data['Option B'],
+          C: data['Option C (Correct)'],
+          D: data['Option D']
+        };
+
+        const correctLetter = (data['Correct Answer'] || '').trim();
+        const correctText = rawOptions[correctLetter] || rawOptions.C;
+
+        // Sanitize duplicated correct texts in incorrect options
+        const sanitizedOptions = { ...rawOptions };
+        ['A', 'B', 'C', 'D'].forEach((key) => {
+          if (key !== correctLetter && sanitizedOptions[key] === correctText) {
+            sanitizedOptions[key] = 'This option is intentionally incorrect.';
+          }
+        });
+
         results.push({
           id: data['Question ID'],
           question: data['Question'],
-          options: {
-            A: data['Option A'],
-            B: data['Option B'],
-            C: data['Option C (Correct)'],
-            D: data['Option D']
-          },
-          correctAnswer: data['Correct Answer'],
+          options: sanitizedOptions,
+          correctAnswer: correctLetter,
           topic: data['Topic']
         });
       })

@@ -32,6 +32,7 @@ const feedbackText = document.getElementById('feedbackText');
 const searchSuggestion = document.getElementById('searchSuggestion');
 const searchLink = document.getElementById('searchLink');
 const nextBtn = document.getElementById('nextBtn');
+const backBtn = document.getElementById('backBtn');
 const questionCounter = document.getElementById('questionCounter');
 const scoreCounter = document.getElementById('scoreCounter');
 const progressBar = document.getElementById('progressBar');
@@ -60,6 +61,9 @@ function shuffleArray(array) {
     return shuffled;
 }
 
+// Keep track of user answers for review mode
+let answerHistory = {}; // key: questionId => { selectedOption, correct, correctAnswer, topic }
+
 // LocalStorage helpers
 function saveToLocalStorage() {
     const progress = {
@@ -67,7 +71,8 @@ function saveToLocalStorage() {
         score,
         answered,
         topicStats,
-        questionOrder: questions.map(q => q.id)
+        questionOrder: questions.map(q => q.id),
+        answerHistory
     };
     localStorage.setItem('quizProgress', JSON.stringify(progress));
 }
@@ -288,6 +293,7 @@ function restoreProgress(progress) {
     score = progress.score;
     answered = progress.answered;
     topicStats = progress.topicStats;
+    answerHistory = progress.answerHistory || {};
 
     hideWelcomeModal();
     displayQuestion();
@@ -305,6 +311,7 @@ function displayQuestion() {
     // Reset state
     feedback.classList.add('hidden');
     nextBtn.classList.add('hidden');
+    backBtn.classList.toggle('hidden', currentQuestionIndex === 0);
     searchSuggestion.classList.add('hidden');
 
     // Update question
@@ -335,6 +342,37 @@ function displayQuestion() {
 
         newBtn.addEventListener('click', () => handleAnswer(optionKey));
     });
+
+    // If this question was already answered, show review state (read-only)
+    const existing = answerHistory[question.id];
+    if (existing) {
+        const optionButtonsNow = optionsContainer.querySelectorAll('.option-btn');
+        optionButtonsNow.forEach(btn => {
+            btn.disabled = true;
+            if (btn.dataset.option === existing.selectedOption) {
+                btn.classList.add(existing.correct ? 'correct' : 'incorrect');
+            }
+            if (!existing.correct && btn.dataset.option === existing.correctAnswer) {
+                btn.classList.add('correct');
+            }
+        });
+
+        // Feedback
+        feedback.classList.remove('hidden');
+        feedback.classList.toggle('correct', !!existing.correct);
+        feedback.classList.toggle('incorrect', !existing.correct);
+        feedbackText.textContent = existing.correct
+            ? '✓ Correct! Well done!'
+            : `✗ Incorrect. The correct answer is ${existing.correctAnswer}.`;
+
+        // Always show search suggestion in review too
+        const searchQuery = encodeURIComponent(`${existing.topic} ${question.question}`);
+        searchLink.href = `https://www.google.com/search?q=${searchQuery}`;
+        searchSuggestion.classList.remove('hidden');
+
+        // Show next button (unless at end will switch to results on click)
+        nextBtn.classList.remove('hidden');
+    }
 }
 
 // Handle answer selection
@@ -383,6 +421,11 @@ async function handleAnswer(selectedOption) {
                     btn.classList.add('correct');
                 }
             });
+
+            // Show search suggestion even when correct
+            searchSuggestion.classList.remove('hidden');
+            const searchQuery = encodeURIComponent(`${result.topic} ${result.question}`);
+            searchLink.href = `https://www.google.com/search?q=${searchQuery}`;
         } else {
             feedback.classList.remove('correct');
             feedback.classList.add('incorrect');
@@ -406,6 +449,14 @@ async function handleAnswer(selectedOption) {
             const searchQuery = encodeURIComponent(`${result.topic} ${result.question}`);
             searchLink.href = `https://www.google.com/search?q=${searchQuery}`;
         }
+
+        // Store in local answer history for review mode
+        answerHistory[question.id] = {
+            selectedOption,
+            correct: !!result.correct,
+            correctAnswer: result.correctAnswer,
+            topic: result.topic
+        };
 
         feedback.classList.remove('hidden');
         nextBtn.classList.remove('hidden');
@@ -435,6 +486,14 @@ async function handleAnswer(selectedOption) {
 nextBtn.addEventListener('click', () => {
     currentQuestionIndex++;
     displayQuestion();
+});
+
+// Move to previous question (review mode only)
+backBtn.addEventListener('click', () => {
+    if (currentQuestionIndex > 0) {
+        currentQuestionIndex--;
+        displayQuestion();
+    }
 });
 
 // Show final results

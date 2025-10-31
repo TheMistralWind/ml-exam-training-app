@@ -17,7 +17,7 @@ CREATE TABLE IF NOT EXISTS emails (
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
--- 3️⃣ User Progress Table (linked to emails)
+-- 3️⃣ User Progress Table (linked to emails)
 CREATE TABLE IF NOT EXISTS user_progress (
     id BIGSERIAL PRIMARY KEY,
     email_id BIGINT UNIQUE NOT NULL REFERENCES emails(id) ON DELETE CASCADE,
