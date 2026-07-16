@@ -1,257 +1,210 @@
 require('dotenv').config();
-console.log('✓ Environment variables loaded');
 
 const express = require('express');
 const fs = require('fs');
+const crypto = require('crypto');
 const csv = require('csv-parser');
 const path = require('path');
 const cors = require('cors');
-const { createClient } = require('@supabase/supabase-js');
-console.log('✓ All modules loaded');
+const { Pool } = require('pg');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Initialize Supabase client (prefer service role if present)
-console.log('Initializing Supabase client...');
-const supabase = createClient(
-  process.env.SUPABASE_URL || '',
-  process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY || ''
-);
-console.log('✓ Supabase client initialized');
+// Postgres connection (Railway provides DATABASE_URL).
+// Default is plain TCP: on Railway the app reaches Postgres over the private
+// network (postgres.railway.internal). Set DATABASE_SSL=no-verify only when
+// connecting through the public proxy, whose cert is self-signed.
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  ssl: process.env.DATABASE_SSL === 'no-verify' ? { rejectUnauthorized: false } : false
+});
+const dbEnabled = !!process.env.DATABASE_URL;
+if (!dbEnabled) {
+  console.warn('DATABASE_URL not set: progress tracking disabled, quiz still works');
+}
 
 app.use(cors());
 app.use(express.json());
 app.use(express.static('public'));
-console.log('✓ Express middleware configured');
 
 let questions = [];
 
-// Load questions from CSV
+// Deterministic per-question option shuffle, stable across restarts and deploys
+// so saved answer letters keep pointing at the same option text.
+function shuffleOptions(id, options, correctLetter) {
+  const letters = ['A', 'B', 'C', 'D'];
+  const entries = letters.map((k) => ({ key: k, text: options[k] }));
+  const seed = crypto.createHash('sha256').update(`ml-exam:${id}`).digest();
+  for (let i = entries.length - 1; i > 0; i--) {
+    const j = seed[i] % (i + 1);
+    [entries[i], entries[j]] = [entries[j], entries[i]];
+  }
+  const newOptions = {};
+  let newCorrect = 'A';
+  entries.forEach((entry, idx) => {
+    newOptions[letters[idx]] = entry.text;
+    if (entry.key === correctLetter) newCorrect = letters[idx];
+  });
+  return { options: newOptions, correctLetter: newCorrect };
+}
+
 function loadQuestions() {
-  console.log('Loading questions from CSV...');
   return new Promise((resolve, reject) => {
     const results = [];
-    fs.createReadStream(path.join(__dirname, 'ML 120 questions for app.csv'))
+    fs.createReadStream(path.join(__dirname, 'questions.csv'))
       .pipe(csv())
-      .on('data', (data) => {
-        // Push raw; we'll sanitize with cross-question pools in the end phase
+      .on('data', (row) => {
+        const shuffled = shuffleOptions(row.id, {
+          A: row.option_a,
+          B: row.option_b,
+          C: row.option_c,
+          D: row.option_d
+        }, row.correct.trim());
         results.push({
-          id: data['Question ID'],
-          question: data['Question'],
-          options: {
-            A: data['Option A'],
-            B: data['Option B'],
-            C: data['Option C (Correct)'],
-            D: data['Option D']
-          },
-          correctAnswer: (data['Correct Answer'] || '').trim(),
-          topic: data['Topic']
+          id: row.id,
+          question: row.question,
+          options: shuffled.options,
+          correctAnswer: shuffled.correctLetter,
+          topic: row.topic
         });
       })
       .on('end', () => {
-        // Build per-topic distractor pools from all other questions' incorrect options
-        const topicToPool = new Map();
-        for (const q of results) {
-          const pool = topicToPool.get(q.topic) || new Set();
-          const correctLetter = q.correctAnswer || 'C';
-          const correctText = q.options[correctLetter] || q.options.C;
-          for (const key of ['A', 'B', 'C', 'D']) {
-            if (key === correctLetter) continue;
-            const opt = q.options[key];
-            if (!opt) continue;
-            const trimmed = String(opt).trim();
-            if (!trimmed) continue;
-            if (trimmed === correctText) continue;
-            pool.add(trimmed);
-          }
-          topicToPool.set(q.topic, pool);
-        }
-
-        // Fallback generic distractors
-        const fallbackDistractors = [
-          'None of the above.',
-          'All of the above.',
-          'It depends on the specific dataset and setup.',
-          'Increase model complexity regardless of overfitting risk.',
-          'Reduce dimensionality without considering variance.'
-        ];
-
-        // Sanitize each question using its topic pool, avoiding duplicates within the question
-        function shuffleOptions(options, correctLetter) {
-          const entries = ['A','B','C','D'].map((k) => ({ key: k, text: options[k] }));
-          // Fisher-Yates shuffle
-          for (let i = entries.length - 1; i > 0; i--) {
-            const j = Math.floor(Math.random() * (i + 1));
-            [entries[i], entries[j]] = [entries[j], entries[i]];
-          }
-          const newLetters = ['A','B','C','D'];
-          const newOptions = {};
-          let newCorrect = 'A';
-          entries.forEach((entry, idx) => {
-            const letter = newLetters[idx];
-            newOptions[letter] = entry.text;
-            if (entry.key === correctLetter) newCorrect = letter;
-          });
-          return { options: newOptions, correctLetter: newCorrect };
-        }
-
-        questions = results.map((q) => {
-          const correctLetter = q.correctAnswer || 'C';
-          const correctText = q.options[correctLetter] || q.options.C;
-          const used = new Set();
-          const sanitized = { ...q.options };
-          // Mark initially used values
-          for (const key of ['A', 'B', 'C', 'D']) {
-            if (sanitized[key]) used.add(sanitized[key]);
-          }
-          const topicPool = Array.from(topicToPool.get(q.topic) || []);
-
-          function pickReplacement() {
-            // Prefer topic pool items not used yet
-            let rep = topicPool.find(v => v !== correctText && !used.has(v));
-            if (!rep) {
-              rep = fallbackDistractors.find(v => v !== correctText && !used.has(v)) || 'None of the above.';
-            }
-            used.add(rep);
-            return rep;
-          }
-
-          for (const key of ['A', 'B', 'C', 'D']) {
-            if (key === correctLetter) continue;
-            const val = sanitized[key];
-            if (!val || String(val).trim() === '' || val === correctText) {
-              sanitized[key] = pickReplacement();
-            }
-          }
-
-          // Shuffle options and remap correct letter
-          const shuffled = shuffleOptions(sanitized, correctLetter);
-
-          return {
-            id: q.id,
-            question: q.question,
-            options: shuffled.options,
-            correctAnswer: shuffled.correctLetter,
-            topic: q.topic
-          };
-        });
-        console.log(`✓ Loaded ${questions.length} questions`);
+        questions = results;
+        console.log(`Loaded ${questions.length} questions`);
         resolve();
       })
-      .on('error', (err) => {
-        console.error('✗ Error loading questions:', err);
-        reject(err);
-      });
+      .on('error', reject);
   });
 }
 
-// Progress Management API Routes
+// Create tables on startup if they do not exist
+async function initDb() {
+  if (!dbEnabled) return;
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS email_sources (
+      id BIGSERIAL PRIMARY KEY,
+      slug TEXT UNIQUE NOT NULL,
+      name TEXT NOT NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+    CREATE TABLE IF NOT EXISTS emails (
+      id BIGSERIAL PRIMARY KEY,
+      address TEXT UNIQUE NOT NULL,
+      source_id BIGINT REFERENCES email_sources(id),
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+    CREATE TABLE IF NOT EXISTS user_progress (
+      id BIGSERIAL PRIMARY KEY,
+      email_id BIGINT UNIQUE NOT NULL REFERENCES emails(id) ON DELETE CASCADE,
+      current_question_index INTEGER NOT NULL DEFAULT 0,
+      score INTEGER NOT NULL DEFAULT 0,
+      answered INTEGER NOT NULL DEFAULT 0,
+      topic_stats JSONB NOT NULL DEFAULT '{}',
+      question_order JSONB NOT NULL DEFAULT '[]',
+      answer_history JSONB NOT NULL DEFAULT '{}',
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+    CREATE TABLE IF NOT EXISTS intake_events (
+      id BIGSERIAL PRIMARY KEY,
+      occurred_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      email TEXT,
+      source_slug TEXT,
+      event TEXT NOT NULL,
+      payload JSONB
+    );
+    CREATE INDEX IF NOT EXISTS idx_emails_address ON emails(address);
+    CREATE INDEX IF NOT EXISTS idx_intake_events_email ON intake_events(email);
+    CREATE INDEX IF NOT EXISTS idx_intake_events_occurred_at ON intake_events(occurred_at);
+  `);
+  console.log('Database schema ready');
+}
 
 // Save user progress (with source tracking)
-app.post("/api/progress/save", async (req, res) => {
+app.post('/api/progress/save', async (req, res) => {
   const { email, source_slug, progress } = req.body;
 
   if (!email || !progress) {
-    return res.status(400).json({ error: "missing email or progress data" });
+    return res.status(400).json({ error: 'missing email or progress data' });
+  }
+  if (!dbEnabled) {
+    return res.status(503).json({ error: 'progress tracking unavailable' });
   }
 
   const cleanEmail = email.trim().toLowerCase();
+  const slug = source_slug || 'ml-app';
 
   try {
-    // 1️⃣ ensure the source exists (for attribution)
-    const { data: source, error: srcErr } = await supabase
-      .from("email_sources")
-      .upsert({ slug: source_slug || "ml-app", name: source_slug || "ML Training App" }, { onConflict: "slug" })
-      .select("id")
-      .single();
+    const { rows: [source] } = await pool.query(
+      `INSERT INTO email_sources (slug, name) VALUES ($1, $2)
+       ON CONFLICT (slug) DO UPDATE SET slug = EXCLUDED.slug
+       RETURNING id`,
+      [slug, source_slug || 'ML Training App']
+    );
 
-    if (srcErr) {
-      console.error('Supabase error (email_sources upsert):', srcErr);
-      throw srcErr;
-    }
+    const { rows: [emailRow] } = await pool.query(
+      `INSERT INTO emails (address, source_id) VALUES ($1, $2)
+       ON CONFLICT (address) DO UPDATE SET updated_at = NOW()
+       RETURNING id`,
+      [cleanEmail, source.id]
+    );
 
-    // 2️⃣ upsert email (case-insensitive)
-    const { data: emailRow, error: emailErr } = await supabase
-      .from("emails")
-      .upsert({ address: cleanEmail, source_id: source.id }, { onConflict: "address" })
-      .select("id")
-      .single();
+    await pool.query(
+      `INSERT INTO user_progress
+         (email_id, current_question_index, score, answered, topic_stats, question_order, answer_history, updated_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())
+       ON CONFLICT (email_id) DO UPDATE SET
+         current_question_index = EXCLUDED.current_question_index,
+         score = EXCLUDED.score,
+         answered = EXCLUDED.answered,
+         topic_stats = EXCLUDED.topic_stats,
+         question_order = EXCLUDED.question_order,
+         answer_history = EXCLUDED.answer_history,
+         updated_at = NOW()`,
+      [
+        emailRow.id,
+        progress.currentQuestionIndex,
+        progress.score,
+        progress.answered,
+        JSON.stringify(progress.topicStats || {}),
+        JSON.stringify(progress.questionOrder || []),
+        JSON.stringify(progress.answerHistory || {})
+      ]
+    );
 
-    if (emailErr) {
-      console.error('Supabase error (emails upsert):', emailErr);
-      throw emailErr;
-    }
+    await pool.query(
+      `INSERT INTO intake_events (email, source_slug, event, payload) VALUES ($1, $2, $3, $4)`,
+      [cleanEmail, slug, 'progress_save', JSON.stringify({
+        currentQuestionIndex: progress.currentQuestionIndex,
+        score: progress.score,
+        answered: progress.answered
+      })]
+    );
 
-    // 3️⃣ upsert progress linked by email_id
-    const { error: progressErr } = await supabase.from("user_progress").upsert({
-      email_id: emailRow.id,
-      current_question_index: progress.currentQuestionIndex,
-      score: progress.score,
-      answered: progress.answered,
-      topic_stats: progress.topicStats,
-      question_order: progress.questionOrder,
-      answer_history: progress.answerHistory || {},
-      updated_at: new Date().toISOString()
-    }, { onConflict: "email_id" });
-
-    if (progressErr) {
-      console.error('Supabase error (user_progress upsert):', progressErr);
-      throw progressErr;
-    }
-
-    // 4️⃣ optional: log the event
-    const { error: eventsErr } = await supabase.from("intake_events").insert({
-      email: cleanEmail,
-      source_slug: source_slug || "ml-app",
-      event: "progress_save",
-      payload: progress
-    });
-    if (eventsErr) {
-      console.error('Supabase error (intake_events insert):', eventsErr);
-      throw eventsErr;
-    }
-
-    return res.json({ success: true, message: "Progress saved successfully" });
+    return res.json({ success: true, message: 'Progress saved successfully' });
   } catch (err) {
-    console.error("Error saving progress:", err);
-    return res.status(500).json({ error: err.message });
+    console.error('Error saving progress:', err);
+    return res.status(500).json({ error: 'Failed to save progress' });
   }
 });
 
 // Load user progress
 app.get('/api/progress/:email', async (req, res) => {
+  if (!dbEnabled) return res.json({ exists: false });
   try {
     const cleanEmail = req.params.email.trim().toLowerCase();
+    const { rows } = await pool.query(
+      `SELECT p.* FROM user_progress p
+       JOIN emails e ON e.id = p.email_id
+       WHERE e.address = $1`,
+      [cleanEmail]
+    );
 
-    // First, get the email_id
-    const { data: emailRow, error: emailErr } = await supabase
-      .from('emails')
-      .select('id')
-      .eq('address', cleanEmail)
-      .single();
+    if (rows.length === 0) return res.json({ exists: false });
 
-    if (emailErr || !emailRow) {
-      // No email found, no progress
-      return res.json({ exists: false });
-    }
-
-    // Now get the progress
-    const { data, error } = await supabase
-      .from('user_progress')
-      .select('*')
-      .eq('email_id', emailRow.id)
-      .single();
-
-    if (error) {
-      if (error.code === 'PGRST116') {
-        // No progress found
-        return res.json({ exists: false });
-      }
-      console.error('Supabase error:', error);
-      return res.status(500).json({ error: 'Failed to load progress' });
-    }
-
+    const data = rows[0];
     res.json({
       exists: true,
       progress: {
@@ -272,38 +225,16 @@ app.get('/api/progress/:email', async (req, res) => {
 
 // Reset user progress
 app.post('/api/progress/reset', async (req, res) => {
+  if (!dbEnabled) return res.json({ success: true, message: 'No progress to reset' });
   try {
     const { email } = req.body;
-
-    if (!email) {
-      return res.status(400).json({ error: 'Email is required' });
-    }
+    if (!email) return res.status(400).json({ error: 'Email is required' });
 
     const cleanEmail = email.trim().toLowerCase();
-
-    // First, get the email_id
-    const { data: emailRow, error: emailErr } = await supabase
-      .from('emails')
-      .select('id')
-      .eq('address', cleanEmail)
-      .single();
-
-    if (emailErr || !emailRow) {
-      // No email found, nothing to reset
-      return res.json({ success: true, message: 'No progress to reset' });
-    }
-
-    // Delete the progress
-    const { error } = await supabase
-      .from('user_progress')
-      .delete()
-      .eq('email_id', emailRow.id);
-
-    if (error) {
-      console.error('Supabase error:', error);
-      return res.status(500).json({ error: 'Failed to reset progress' });
-    }
-
+    await pool.query(
+      `DELETE FROM user_progress WHERE email_id = (SELECT id FROM emails WHERE address = $1)`,
+      [cleanEmail]
+    );
     res.json({ success: true, message: 'Progress reset successfully' });
   } catch (error) {
     console.error('Error resetting progress:', error);
@@ -313,23 +244,14 @@ app.post('/api/progress/reset', async (req, res) => {
 
 // Log donation click
 app.post('/api/donate/click', async (req, res) => {
+  if (!dbEnabled) return res.json({ success: true });
   try {
     const { email } = req.body;
     const cleanEmail = email ? email.trim().toLowerCase() : null;
-
-    // Log donation click event
-    const { error } = await supabase.from('intake_events').insert({
-      email: cleanEmail,
-      source_slug: 'ml-app', // Default source for donation clicks
-      event: 'donate_click',
-      payload: { provider: 'mobilepay' }
-    });
-
-    if (error) {
-      console.error('Supabase error (donate_click):', error);
-      return res.status(500).json({ error: 'Failed to log donation click' });
-    }
-
+    await pool.query(
+      `INSERT INTO intake_events (email, source_slug, event, payload) VALUES ($1, $2, $3, $4)`,
+      [cleanEmail, 'ml-app', 'donate_click', JSON.stringify({ provider: 'mobilepay' })]
+    );
     res.json({ success: true, message: 'Donation click logged' });
   } catch (error) {
     console.error('Error logging donation click:', error);
@@ -337,9 +259,9 @@ app.post('/api/donate/click', async (req, res) => {
   }
 });
 
-// API Routes
+// Questions API
 app.get('/api/questions', (req, res) => {
-  // Return questions without correct answers (for security)
+  // Return questions without correct answers
   const questionsWithoutAnswers = questions.map(q => ({
     id: q.id,
     question: q.question,
@@ -370,17 +292,36 @@ app.post('/api/check-answer', (req, res) => {
   });
 });
 
-// Serve the main page
+app.get('/api/health', async (req, res) => {
+  let db = 'disabled';
+  if (dbEnabled) {
+    try {
+      await pool.query('SELECT 1');
+      db = 'ok';
+    } catch (e) {
+      db = 'error';
+    }
+  }
+  res.json({ status: 'ok', questions: questions.length, db });
+});
+
 app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
 // Initialize server
-loadQuestions().then(() => {
-  app.listen(PORT, () => {
-    console.log(`Server running on port ${PORT}`);
+loadQuestions()
+  .then(initDb)
+  .catch((err) => {
+    // Schema init failure should not take the quiz down
+    console.error('Database init failed (progress tracking may not work):', err.message);
+  })
+  .then(() => {
+    app.listen(PORT, () => {
+      console.log(`Server running on port ${PORT}`);
+    });
+  })
+  .catch((err) => {
+    console.error('Fatal: could not load questions:', err);
+    process.exit(1);
   });
-}).catch(err => {
-  console.error('Error loading questions:', err);
-  process.exit(1);
-});

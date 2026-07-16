@@ -11,6 +11,23 @@ let legacyAnsweredIds = new Set(); // questions answered before per-question his
 let legacyThreshold = 0; // number of leading questions considered answered before history existed
 let lastNav = null; // 'next' | 'back' | null
 
+// PostHog event helper (safe if PostHog failed to load)
+function track(event, props) {
+    try {
+        if (window.posthog) window.posthog.capture(event, props);
+    } catch (e) {
+        // analytics must never break the app
+    }
+}
+
+function identifyUser(email) {
+    try {
+        if (window.posthog && email) window.posthog.identify(email);
+    } catch (e) {
+        // analytics must never break the app
+    }
+}
+
 // Utility: ensure Next button is visible on small screens
 function scrollNextIntoView() {
     try {
@@ -133,9 +150,7 @@ function setStoredEmail(email) {
 // Progress management
 async function saveProgress(email) {
     try {
-        if (window.plausible) {
-            window.plausible('Progress Save Attempt', { props: { source: sourceSlug } });
-        }
+        track('progress_save_attempt', { source: sourceSlug });
         const progress = {
             currentQuestionIndex,
             score,
@@ -203,9 +218,7 @@ async function resetProgress(email) {
 // Modal management
 function showSignupModal() {
     signupModal.classList.remove('hidden');
-    if (window.plausible) {
-        window.plausible('Signup Modal Shown');
-    }
+    track('signup_modal_shown');
 }
 
 function hideSignupModal() {
@@ -214,9 +227,7 @@ function hideSignupModal() {
 
 function showSignInModal() {
     signInModal.classList.remove('hidden');
-    if (window.plausible) {
-        window.plausible('Sign-In Modal Shown');
-    }
+    track('sign_in_modal_shown');
 }
 
 function hideSignInModal() {
@@ -229,9 +240,7 @@ function showWelcomeModal(email, progress) {
     document.getElementById('progressInfo').textContent =
         `Resume from question ${progress.currentQuestionIndex + 1} (Score: ${progress.score}/${progress.answered})`;
     welcomeModal.classList.remove('hidden');
-    if (window.plausible) {
-        window.plausible('Welcome Modal Shown');
-    }
+    track('welcome_modal_shown');
 }
 
 function hideWelcomeModal() {
@@ -274,9 +283,7 @@ async function handleDonationClick() {
         });
 
         // Track in Plausible
-        if (window.plausible) {
-            window.plausible('Donate Click', { props: { provider: 'mobilepay' } });
-        }
+        track('donate_click', { provider: 'mobilepay' });
 
         // Open MobilePay link
         window.open('https://qr.mobilepay.fi/box/fc157323-1b1a-4061-afd6-cfd06965788d/pay-in', '_blank', 'noopener');
@@ -298,6 +305,7 @@ async function loadQuestions() {
         // Check if user has saved progress
         const storedEmail = getStoredEmail();
         if (storedEmail) {
+            identifyUser(storedEmail);
             const progress = await loadProgress(storedEmail);
             if (progress && progress.currentQuestionIndex < questions.length) {
                 userEmail = storedEmail;
@@ -480,9 +488,7 @@ async function handleAnswer(selectedOption) {
             feedback.classList.remove('incorrect');
             feedback.classList.add('correct');
             feedbackText.textContent = '✓ Correct! Well done!';
-            if (window.plausible) {
-                window.plausible('Answer Correct', { props: { topic: result.topic } });
-            }
+            track('answer_correct', { topic: result.topic });
 
             // Highlight correct answer
             optionButtons.forEach(btn => {
@@ -494,9 +500,7 @@ async function handleAnswer(selectedOption) {
             feedback.classList.remove('correct');
             feedback.classList.add('incorrect');
             feedbackText.textContent = `✗ Incorrect. The correct answer is ${result.correctAnswer}.`;
-            if (window.plausible) {
-                window.plausible('Answer Incorrect', { props: { topic: result.topic } });
-            }
+            track('answer_incorrect', { topic: result.topic });
 
             // Highlight incorrect and correct answers
             optionButtons.forEach(btn => {
@@ -513,6 +517,9 @@ async function handleAnswer(selectedOption) {
             const searchQuery = encodeURIComponent(`${result.topic} ${result.question}`);
             searchLink.href = `https://www.google.com/search?q=${searchQuery}`;
         }
+
+        // Reflect the new score immediately
+        scoreCounter.textContent = `Score: ${score}/${answered}`;
 
         // Store in answer history (mark legacy), then show feedback
         answerHistory[questionId] = {
@@ -573,6 +580,7 @@ function showResults() {
     resultsContainer.classList.remove('hidden');
 
     const percentage = Math.round((score / questions.length) * 100);
+    track('quiz_completed', { score, total: questions.length, percentage });
 
     document.getElementById('finalScore').textContent = `Your Score: ${score}/${questions.length}`;
     document.getElementById('percentage').textContent = `${percentage}%`;
@@ -614,7 +622,12 @@ document.getElementById('restartBtn').addEventListener('click', async () => {
     score = 0;
     answered = 0;
     topicStats = {};
+    answerHistory = {};
+    legacyAnsweredIds = new Set();
+    legacyThreshold = 0;
+    lastNav = null;
     hasShownSignup = false;
+    track('quiz_restarted');
     questions = shuffleArray(questions);
     resultsContainer.classList.add('hidden');
     quizContainer.classList.remove('hidden');
@@ -636,15 +649,14 @@ signupForm.addEventListener('submit', async (e) => {
     if (email) {
         userEmail = email;
         setStoredEmail(email);
+        identifyUser(email);
         updateSignInButton();
 
         // Save current progress to server
         const success = await saveProgress(email);
 
         if (success) {
-            if (window.plausible) {
-                window.plausible('Progress Save Success', { props: { source: sourceSlug } });
-            }
+            track('progress_save_success', { source: sourceSlug });
             hideSignupModal();
             // Show a brief success message
             feedbackText.textContent = '✓ Progress saved! You can now close and return anytime.';
@@ -652,9 +664,7 @@ signupForm.addEventListener('submit', async (e) => {
             feedback.classList.add('correct');
             feedback.classList.remove('hidden');
         } else {
-            if (window.plausible) {
-                window.plausible('Progress Save Failed', { props: { source: sourceSlug } });
-            }
+            track('progress_save_failed', { source: sourceSlug });
             alert('Failed to save progress. Please try again.');
         }
     }
@@ -664,9 +674,7 @@ signupForm.addEventListener('submit', async (e) => {
 skipSignupBtn.addEventListener('click', () => {
     hideSignupModal();
     // Continue with the quiz without saving
-    if (window.plausible) {
-        window.plausible('Signup Skipped');
-    }
+    track('signup_skipped');
 });
 
 // Sign in button in header
@@ -685,6 +693,7 @@ signInForm.addEventListener('submit', async (e) => {
         if (progress && progress.currentQuestionIndex < questions.length) {
             userEmail = email;
             setStoredEmail(email);
+            identifyUser(email);
             updateSignInButton();
             hideSignInModal();
             showWelcomeModal(email, progress);
@@ -708,9 +717,7 @@ document.getElementById('continueBtn').addEventListener('click', async () => {
             restoreProgress(progress);
         }
     }
-    if (window.plausible) {
-        window.plausible('Resume Continue');
-    }
+    track('resume_continue');
 });
 
 // Welcome modal - Start Fresh button
@@ -722,9 +729,7 @@ document.getElementById('startFreshBtn').addEventListener('click', async () => {
     clearLocalStorage();
     hideWelcomeModal();
     displayQuestion();
-    if (window.plausible) {
-        window.plausible('Resume Start Fresh');
-    }
+    track('resume_start_fresh');
 });
 
 // Donation button event listener

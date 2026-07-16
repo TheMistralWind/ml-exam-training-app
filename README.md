@@ -18,8 +18,8 @@ A web-based quiz application for machine learning exam preparation with 120 mult
 
 - **Backend**: Node.js + Express
 - **Frontend**: HTML, CSS, JavaScript (Vanilla)
-- **Database**: Supabase (PostgreSQL)
-- **CSV Parsing**: csv-parser
+- **Database**: PostgreSQL (Railway)
+- **Analytics**: PostHog
 
 ## Installation
 
@@ -28,11 +28,10 @@ A web-based quiz application for machine learning exam preparation with 120 mult
 npm install
 ```
 
-2. **Set up Supabase** (required for progress tracking):
-   - See [SETUP.md](./SETUP.md) for detailed instructions
-   - Create a Supabase project
-   - Run the SQL script from `supabase-setup.sql`
-   - Copy your credentials to `.env`
+2. **Set up the database** (required for progress tracking):
+   - Copy `.env.example` to `.env` and set `DATABASE_URL` to any Postgres instance
+   - The server creates its own tables at startup
+   - Without `DATABASE_URL` the quiz still works; only progress saving is disabled
 
 3. Run the application:
 ```bash
@@ -56,7 +55,7 @@ npm start
 .
 ├── server.js                          # Express server
 ├── package.json                       # Dependencies
-├── ML 120 questions for app.csv       # Questions database
+├── questions.csv                      # Questions database
 ├── public/
 │   ├── index.html                     # Main HTML file
 │   ├── styles.css                     # Styling
@@ -89,7 +88,7 @@ npm start
 ## How Progress Tracking Works
 
 - After answering 5 questions, a modal prompts you to save your progress with email
-- Progress is stored both locally (localStorage) and remotely (Supabase)
+- Progress is stored both locally (localStorage) and remotely (Postgres)
 - When you return, you'll see a "Welcome Back" screen with options to:
   - **Continue**: Resume from your exact spot with same question order
   - **Start Fresh**: Clear progress and get new random question order
