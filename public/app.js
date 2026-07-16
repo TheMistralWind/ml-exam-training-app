@@ -104,7 +104,6 @@ const signInForm = document.getElementById('signInForm');
 const signInEmailInput = document.getElementById('signInEmailInput');
 const skipSignupBtn = document.getElementById('skipSignupBtn');
 const cancelSignInBtn = document.getElementById('cancelSignInBtn');
-const donationButton = document.getElementById('donationButton');
 const donateBtn = document.getElementById('donateBtn');
 
 // Shuffle array using Fisher-Yates algorithm
@@ -261,13 +260,6 @@ function checkSignupTrigger() {
     if (!userEmail && answered === 5 && !hasShownSignup) {
         hasShownSignup = true;
         showSignupModal();
-    }
-}
-
-// Show donation button after 10 questions
-function showDonationButton() {
-    if (answered >= 10) {
-        donationButton.classList.remove('hidden');
     }
 }
 
@@ -545,9 +537,6 @@ async function handleAnswer(selectedOption) {
 
         // Check if we should show signup modal (after 5 questions)
         checkSignupTrigger();
-
-        // Check if we should show donation button (after 10 questions)
-        showDonationButton();
 
     } catch (error) {
         console.error('Error checking answer:', error);

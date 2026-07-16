@@ -92,7 +92,8 @@ a {
 .container {
     max-width: 720px;
     margin: 0 auto;
-    padding: 24px 20px 40px;
+    /* extra bottom padding keeps content clear of the fixed wave-mark */
+    padding: 24px 20px 56px;
 }
 
 /* ---------- Header ---------- */
