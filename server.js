@@ -242,6 +242,15 @@ app.post('/api/progress/reset', async (req, res) => {
   }
 });
 
+// Donation redirect. Swap providers by changing the DONATE_URL env var
+// (e.g. to a Stripe Payment Link); no code change needed.
+const DONATE_URL = process.env.DONATE_URL
+  || 'https://qr.mobilepay.fi/box/fc157323-1b1a-4061-afd6-cfd06965788d/pay-in';
+
+app.get('/donate', (req, res) => {
+  res.redirect(302, DONATE_URL);
+});
+
 // Log donation click
 app.post('/api/donate/click', async (req, res) => {
   if (!dbEnabled) return res.json({ success: true });
@@ -250,7 +259,7 @@ app.post('/api/donate/click', async (req, res) => {
     const cleanEmail = email ? email.trim().toLowerCase() : null;
     await pool.query(
       `INSERT INTO intake_events (email, source_slug, event, payload) VALUES ($1, $2, $3, $4)`,
-      [cleanEmail, 'ml-app', 'donate_click', JSON.stringify({ provider: 'mobilepay' })]
+      [cleanEmail, 'ml-app', 'donate_click', JSON.stringify({ provider: new URL(DONATE_URL).hostname })]
     );
     res.json({ success: true, message: 'Donation click logged' });
   } catch (error) {

@@ -275,14 +275,14 @@ async function handleDonationClick() {
         });
 
         // Track in Plausible
-        track('donate_click', { provider: 'mobilepay' });
+        track('donate_click');
 
         // Open MobilePay link
-        window.open('https://qr.mobilepay.fi/box/fc157323-1b1a-4061-afd6-cfd06965788d/pay-in', '_blank', 'noopener');
+        window.open('/donate', '_blank', 'noopener');
     } catch (error) {
         console.error('Error logging donation click:', error);
         // Still open the link even if logging fails
-        window.open('https://qr.mobilepay.fi/box/fc157323-1b1a-4061-afd6-cfd06965788d/pay-in', '_blank', 'noopener');
+        window.open('/donate', '_blank', 'noopener');
     }
 }
 
