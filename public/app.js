@@ -737,3 +737,9 @@ donateBtn.addEventListener('click', handleDonationClick);
 
 // Initialize app
 loadQuestions();
+
+// aalto (fi, n.): wave
+console.log(
+    '%c\n ~~~~~~~~~~~~~~~~~~~~~~~\n  WAVE UNIVERSITY\n  aalto (fi, n.): wave\n ~~~~~~~~~~~~~~~~~~~~~~~\n',
+    'color: #7af0a4; font-family: monospace;'
+);

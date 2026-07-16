@@ -824,3 +824,18 @@ h1::before {
         scroll-behavior: auto;
     }
 }
+
+/* ---------- Easter egg: aalto (fi, n.): wave ---------- */
+
+.wave-mark {
+    position: fixed;
+    right: 18px;
+    bottom: 14px;
+    font-family: var(--mono);
+    font-size: 0.68rem;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: rgba(122, 240, 164, 0.16);
+    pointer-events: none;
+    user-select: none;
+}
