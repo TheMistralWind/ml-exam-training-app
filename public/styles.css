@@ -1,45 +1,39 @@
 /* ============================================================
-   ML Exam Trainer — "Studio"
-   Robin's site language applied to a quiz.
-   Charcoal-slate base, soft off-white text, one pink accent.
-   Depth through elevation, not borders. No glows, no gradients-
-   on-everything, no clutter.
+   ML Exam Trainer — "Terminal Pro"
+   Professionalized cyberpunk: near-black warm dark, phosphor
+   green accent, IBM Plex Mono for chrome / Plex Sans for prose.
+   Drop-in replacement for public/styles.css — same DOM, same
+   class hooks. Requires the font link (see handoff/README.md).
    ============================================================ */
 
 :root {
-    /* Surfaces: page -> card -> raised element. Elevation = slightly lighter. */
-    --bg: #16181d;
-    --surface-1: #1d2026;
-    --surface-2: #23262d;
-    --surface-3: #2a2e36;
+    --bg: #0a0d0b;
+    --surface: #0e1210;
 
-    /* Type */
-    --text: #ecedef;
-    --text-secondary: #a2a7b0;
-    --text-muted: #767d88;
+    --text: #c9d4cc;
+    --text-bright: #e8f0ea;
+    --text-secondary: #9faea3;
+    --text-muted: #6d7a70;
 
-    /* The one accent */
-    --accent: #e0446e;
-    --accent-bright: #ec6a8e;   /* small-text-safe tint of the accent */
-    --accent-solid: #d13a63;    /* solid button fill, AA with white label */
-    --accent-soft: rgba(224, 68, 110, 0.10);
+    --accent: #7af0a4;              /* phosphor green */
+    --accent-border: rgba(122, 240, 164, 0.30);
+    --accent-line: rgba(122, 240, 164, 0.15);
+    --accent-dim: rgba(122, 240, 164, 0.18);
+    --accent-soft: rgba(122, 240, 164, 0.08);
+    --accent-faint: rgba(122, 240, 164, 0.02);
+    --glow: 0 0 14px rgba(122, 240, 164, 0.30);
+    --glow-sm: 0 0 8px rgba(122, 240, 164, 0.25);
 
-    /* Muted, grown-up state colors */
-    --ok: #93ceab;
-    --ok-deep: #57ad7e;
-    --ok-soft: rgba(122, 199, 154, 0.10);
-    --err: #e69090;
-    --err-deep: #cf5f5f;
-    --err-soft: rgba(224, 118, 118, 0.10);
+    --err: #e07070;
+    --err-border: rgba(224, 112, 112, 0.6);
+    --err-soft: rgba(224, 112, 112, 0.10);
 
-    --radius: 14px;
-    --radius-lg: 20px;
-    --pill: 999px;
+    --radius: 6px;
+    --radius-lg: 10px;
 
-    --shadow-modal: 0 24px 60px rgba(0, 0, 0, 0.5);
-
-    --font: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI",
-            system-ui, Roboto, "Helvetica Neue", Arial, sans-serif;
+    --mono: 'IBM Plex Mono', ui-monospace, Menlo, Consolas, monospace;
+    --sans: 'IBM Plex Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI',
+            system-ui, Arial, sans-serif;
 }
 
 /* ---------- Reset / base ---------- */
@@ -57,16 +51,8 @@ html {
 }
 
 body {
-    font-family: var(--font);
+    font-family: var(--sans);
     background-color: var(--bg);
-    /* One barely-there wash of the accent at the top of the page.
-       Sub-perceptual on most screens; gives the slate some warmth. */
-    background-image: radial-gradient(
-        ellipse 90% 40% at 50% -10%,
-        rgba(224, 68, 110, 0.05),
-        transparent 70%
-    );
-    background-repeat: no-repeat;
     color: var(--text);
     line-height: 1.55;
     min-height: 100vh;
@@ -87,14 +73,14 @@ button:disabled {
 }
 
 a {
-    color: var(--accent-bright);
+    color: var(--accent);
     text-decoration: none;
 }
 
 :focus-visible {
     outline: 2px solid var(--accent);
     outline-offset: 2px;
-    border-radius: 6px;
+    border-radius: 4px;
 }
 
 .hidden {
@@ -104,52 +90,70 @@ a {
 /* ---------- Layout ---------- */
 
 .container {
-    max-width: 660px;
+    max-width: 720px;
     margin: 0 auto;
-    padding: 28px 20px 40px;
+    padding: 24px 20px 40px;
 }
 
 /* ---------- Header ---------- */
 
 header {
-    margin-bottom: 24px;
+    margin-bottom: 28px;
+    padding-bottom: 0;
 }
 
 .header-top {
     display: flex;
-    align-items: baseline;
+    align-items: center;
     justify-content: space-between;
     gap: 16px;
-    margin-bottom: 18px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid var(--accent-line);
+    margin-bottom: 20px;
 }
 
 h1 {
-    font-size: 1.05rem;
-    font-weight: 650;
-    letter-spacing: -0.01em;
-    color: var(--text);
+    font-family: var(--mono);
+    font-size: 0.95rem;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    color: var(--text-bright);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+/* Green status square before the wordmark */
+h1::before {
+    content: '';
+    width: 10px;
+    height: 10px;
+    background: var(--accent);
+    border-radius: 2px;
+    box-shadow: 0 0 8px rgba(122, 240, 164, 0.6);
+    flex-shrink: 0;
 }
 
 .sign-in-btn {
     flex-shrink: 0;
-    font-size: 0.85rem;
-    font-weight: 500;
-    color: var(--text-secondary);
-    padding: 6px 14px;
-    border-radius: var(--pill);
-    background: var(--surface-2);
-    transition: background-color 0.15s ease, color 0.15s ease;
+    font-family: var(--mono);
+    font-size: 0.78rem;
+    padding: 7px 16px;
+    border: 1px solid var(--accent-border);
+    border-radius: 4px;
+    color: var(--text);
+    transition: border-color 0.15s ease, color 0.15s ease;
 }
 
 .sign-in-btn:hover {
-    background: var(--surface-3);
-    color: var(--text);
+    border-color: var(--accent);
+    color: var(--text-bright);
 }
 
 .progress-bar {
     height: 4px;
-    background: var(--surface-2);
-    border-radius: var(--pill);
+    background: rgba(122, 240, 164, 0.12);
+    border-radius: 2px;
     overflow: hidden;
 }
 
@@ -157,7 +161,8 @@ h1 {
     height: 100%;
     width: 0;
     background: var(--accent);
-    border-radius: var(--pill);
+    border-radius: 2px;
+    box-shadow: 0 0 6px rgba(122, 240, 164, 0.5);
     transition: width 0.6s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
@@ -165,56 +170,61 @@ h1 {
     display: flex;
     justify-content: space-between;
     margin-top: 10px;
-    font-size: 0.82rem;
+    font-family: var(--mono);
+    font-size: 0.75rem;
     color: var(--text-muted);
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
     font-variant-numeric: tabular-nums;
 }
 
 /* ---------- Quiz card ---------- */
 
 .quiz-card {
-    background: var(--surface-1);
-    border-radius: var(--radius-lg);
-    padding: 28px 24px;
+    background: transparent;
+    padding: 4px 0 0;
 }
 
 .topic-badge {
     display: inline-block;
+    font-family: var(--mono);
     font-size: 0.72rem;
-    font-weight: 600;
-    letter-spacing: 0.06em;
+    font-weight: 500;
+    letter-spacing: 0.14em;
     text-transform: uppercase;
-    color: var(--accent-bright);
-    background: var(--accent-soft);
-    padding: 4px 12px;
-    border-radius: var(--pill);
-    margin-bottom: 16px;
+    color: var(--accent);
+    margin-bottom: 14px;
+}
+
+.topic-badge::before {
+    content: '// ';
+    color: var(--text-muted);
 }
 
 .question {
-    font-size: 1.2rem;
-    font-weight: 600;
+    font-size: 1.4rem;
+    font-weight: 500;
     line-height: 1.45;
-    letter-spacing: -0.005em;
-    color: var(--text);
+    color: var(--text-bright);
     margin-bottom: 8px;
+    text-wrap: pretty;
 }
 
-/* Inline "search this" link: present but quiet */
 .search-inline {
-    margin-bottom: 20px;
+    margin-bottom: 24px;
 }
 
 .search-btn {
     display: inline-block;
-    font-size: 0.82rem;
+    font-family: var(--mono);
+    font-size: 0.78rem;
     color: var(--text-muted);
     padding: 2px 0;
     transition: color 0.15s ease;
 }
 
 .search-btn:hover {
-    color: var(--accent-bright);
+    color: var(--accent);
 }
 
 /* ---------- Options ---------- */
@@ -227,75 +237,84 @@ h1 {
 .option-btn {
     display: flex;
     align-items: center;
-    gap: 14px;
+    gap: 16px;
     width: 100%;
     min-height: 56px;
     text-align: left;
-    padding: 14px 16px;
-    background: var(--surface-2);
+    padding: 15px 18px;
+    background: var(--accent-faint);
+    border: 1px solid var(--accent-dim);
     border-radius: var(--radius);
-    transition: background-color 0.15s ease;
+    transition: border-color 0.15s ease, background-color 0.15s ease,
+                box-shadow 0.15s ease;
 }
 
 .option-btn:hover:not(:disabled) {
-    background: var(--surface-3);
+    border-color: var(--accent-border);
+    background: var(--accent-soft);
+    box-shadow: var(--glow-sm);
 }
 
 .option-btn:disabled:not(.correct):not(.incorrect) {
     opacity: 0.45;
 }
 
+/* [A] [B] [C] [D] — bracketed mono markers */
 .option-label {
-    display: flex;
-    align-items: center;
-    justify-content: center;
     flex-shrink: 0;
-    width: 28px;
-    height: 28px;
-    border-radius: 50%;
-    font-size: 0.8rem;
-    font-weight: 600;
-    color: var(--text-secondary);
-    background: rgba(255, 255, 255, 0.06);
-    transition: background-color 0.15s ease, color 0.15s ease;
+    width: auto;
+    height: auto;
+    background: none;
+    border-radius: 0;
+    font-family: var(--mono);
+    font-size: 0.82rem;
+    font-weight: 500;
+    color: var(--text-muted);
+    transition: color 0.15s ease;
 }
 
+.option-label::before { content: '['; }
+.option-label::after  { content: ']'; }
+
 .option-text {
-    font-size: 0.95rem;
+    font-size: 0.97rem;
     line-height: 1.45;
     color: var(--text);
 }
 
-/* Answered states: tinted surface + solid label chip. No borders. */
 @keyframes answer-pop {
     0% { transform: scale(1); }
-    45% { transform: scale(1.02); }
+    45% { transform: scale(1.015); }
     100% { transform: scale(1); }
 }
 
 .option-btn.correct {
-    background: var(--ok-soft);
+    background: var(--accent-soft);
+    border-color: var(--accent);
+    box-shadow: 0 0 12px rgba(122, 240, 164, 0.25);
     opacity: 1;
     animation: answer-pop 0.35s ease;
 }
 
 .option-btn.correct .option-label {
-    background: var(--ok-deep);
-    color: #10241a;
+    color: var(--accent);
+    font-weight: 600;
 }
 
 .option-btn.correct .option-text {
-    color: var(--ok);
+    color: var(--text-bright);
+    font-weight: 600;
 }
 
 .option-btn.incorrect {
     background: var(--err-soft);
+    border-color: var(--err-border);
     opacity: 1;
 }
 
 .option-btn.incorrect .option-label {
-    background: var(--err-deep);
-    color: #2a1212;
+    color: var(--err);
+    font-weight: 600;
 }
 
 .option-btn.incorrect .option-text {
@@ -310,27 +329,30 @@ h1 {
 }
 
 .feedback {
-    margin-top: 18px;
-    border-radius: var(--radius);
-    padding: 14px 16px;
+    margin-top: 20px;
+    padding: 14px 18px;
+    border-radius: 0 var(--radius) var(--radius) 0;
     animation: rise-in 0.25s ease;
 }
 
 .feedback.correct {
-    background: var(--ok-soft);
+    background: rgba(122, 240, 164, 0.06);
+    border-left: 2px solid var(--accent);
 }
 
 .feedback.incorrect {
     background: var(--err-soft);
+    border-left: 2px solid var(--err);
 }
 
 .feedback-content p {
-    font-size: 0.92rem;
+    font-family: var(--mono);
+    font-size: 0.85rem;
     font-weight: 500;
 }
 
 .feedback.correct .feedback-content p {
-    color: var(--ok);
+    color: var(--accent);
 }
 
 .feedback.incorrect .feedback-content p {
@@ -344,6 +366,7 @@ h1 {
 .search-suggestion p,
 .feedback.correct .search-suggestion p,
 .feedback.incorrect .search-suggestion p {
+    font-family: var(--sans);
     font-size: 0.82rem;
     font-weight: 400;
     color: var(--text-secondary);
@@ -351,45 +374,47 @@ h1 {
 }
 
 .search-suggestion .search-btn {
-    color: var(--accent-bright);
-    font-weight: 500;
-}
-
-.search-suggestion .search-btn:hover {
     color: var(--accent);
+    font-weight: 500;
 }
 
 /* ---------- Navigation ---------- */
 
 .nav-btns {
     display: flex;
-    justify-content: space-between;
     align-items: center;
     gap: 12px;
-    margin-top: 22px;
+    margin-top: 24px;
 }
 
-/* If Back is hidden, keep Next on the right */
 .nav-btns .next-btn {
     margin-left: auto;
+    flex: 1;
 }
 
 .next-btn,
 .restart-btn,
 .submit-btn {
-    background: var(--accent-solid);
-    color: #ffffff;
-    font-size: 0.95rem;
+    font-family: var(--mono);
+    font-size: 0.85rem;
     font-weight: 600;
-    padding: 13px 30px;
-    border-radius: var(--pill);
-    transition: background-color 0.15s ease, transform 0.1s ease;
+    background: var(--accent);
+    color: var(--bg);
+    padding: 14px 28px;
+    border-radius: var(--radius);
+    box-shadow: var(--glow);
+    transition: filter 0.15s ease, transform 0.1s ease;
+}
+
+.next-btn::after,
+.restart-btn::after {
+    content: ' →';
 }
 
 .next-btn:hover,
 .restart-btn:hover,
 .submit-btn:hover {
-    background: var(--accent);
+    filter: brightness(1.08);
 }
 
 .next-btn:active,
@@ -399,38 +424,43 @@ h1 {
 }
 
 .back-btn {
-    font-size: 0.9rem;
-    font-weight: 500;
-    color: var(--text-secondary);
-    padding: 12px 22px;
-    border-radius: var(--pill);
-    background: var(--surface-2);
-    transition: background-color 0.15s ease, color 0.15s ease;
+    font-family: var(--mono);
+    font-size: 0.85rem;
+    color: var(--text);
+    padding: 13px 22px;
+    border: 1px solid var(--accent-border);
+    border-radius: var(--radius);
+    transition: border-color 0.15s ease, color 0.15s ease;
+}
+
+.back-btn::before {
+    content: '← ';
 }
 
 .back-btn:hover {
-    background: var(--surface-3);
-    color: var(--text);
+    border-color: var(--accent);
+    color: var(--text-bright);
 }
 
 /* ---------- Support chip ---------- */
 
 .support-chip {
-    margin-top: 26px;
+    margin-top: 28px;
     text-align: center;
 }
 
 .donate-btn {
-    font-size: 0.82rem;
+    font-family: var(--mono);
+    font-size: 0.78rem;
     color: var(--text-muted);
-    padding: 8px 18px;
-    border-radius: var(--pill);
-    background: var(--surface-2);
-    transition: background-color 0.15s ease, color 0.15s ease;
+    padding: 9px 18px;
+    border: 1px solid var(--accent-dim);
+    border-radius: var(--radius);
+    transition: border-color 0.15s ease, color 0.15s ease;
 }
 
 .donate-btn:hover {
-    background: var(--surface-3);
+    border-color: var(--accent-border);
     color: var(--text-secondary);
 }
 
@@ -443,63 +473,72 @@ h1 {
 
 .results-card {
     width: 100%;
-    background: var(--surface-1);
-    border-radius: var(--radius-lg);
-    padding: 40px 28px;
+    padding: 24px 0;
     text-align: center;
 }
 
 .results-card h2 {
-    font-size: 1.3rem;
-    font-weight: 650;
-    letter-spacing: -0.01em;
+    font-family: var(--mono);
+    font-size: 0.85rem;
+    font-weight: 500;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--accent);
     margin-bottom: 4px;
 }
 
-/* The trophy emoji reads as clutter in this direction. */
+.results-card h2::before {
+    content: '>> ';
+}
+
 .trophy {
     display: none;
 }
 
 .final-score {
-    margin: 24px 0 8px;
+    margin: 28px 0 8px;
 }
 
+/* Swapped hierarchy: giant percentage, small score line */
 .final-score h3 {
-    font-size: 0.95rem;
-    font-weight: 500;
-    color: var(--text-secondary);
+    font-family: var(--mono);
+    font-size: 0.85rem;
+    font-weight: 400;
+    color: var(--text-muted);
     margin-bottom: 6px;
 }
 
 .final-score p {
-    font-size: 3rem;
-    font-weight: 700;
+    font-family: var(--mono);
+    font-size: 4.5rem;
+    font-weight: 600;
     letter-spacing: -0.02em;
-    color: var(--accent-bright);
+    color: var(--text-bright);
     line-height: 1.1;
+    text-shadow: 0 0 24px rgba(122, 240, 164, 0.30);
     font-variant-numeric: tabular-nums;
 }
 
 .performance-message {
     font-size: 0.95rem;
     color: var(--text-secondary);
-    max-width: 40ch;
-    margin: 0 auto 28px;
+    max-width: 44ch;
+    margin: 16px auto 32px;
 }
 
 .topic-breakdown {
     text-align: left;
-    margin-bottom: 28px;
+    margin-bottom: 32px;
 }
 
 .topic-breakdown h4 {
-    font-size: 0.78rem;
-    font-weight: 600;
-    letter-spacing: 0.06em;
+    font-family: var(--mono);
+    font-size: 0.72rem;
+    font-weight: 500;
+    letter-spacing: 0.15em;
     text-transform: uppercase;
     color: var(--text-muted);
-    margin-bottom: 10px;
+    margin-bottom: 14px;
 }
 
 .topic-item {
@@ -507,10 +546,11 @@ h1 {
     justify-content: space-between;
     align-items: baseline;
     gap: 16px;
-    background: var(--surface-2);
-    border-radius: 10px;
-    padding: 11px 14px;
-    margin-bottom: 6px;
+    background: var(--accent-faint);
+    border: 1px solid var(--accent-dim);
+    border-radius: var(--radius);
+    padding: 12px 16px;
+    margin-bottom: 8px;
     font-size: 0.88rem;
 }
 
@@ -520,12 +560,14 @@ h1 {
 
 .topic-item span:last-child {
     flex-shrink: 0;
-    color: var(--text-secondary);
+    font-family: var(--mono);
+    font-size: 0.8rem;
+    color: var(--accent);
     font-variant-numeric: tabular-nums;
 }
 
 .topic-item strong {
-    color: var(--text);
+    color: var(--accent);
     font-weight: 600;
 }
 
@@ -539,9 +581,9 @@ h1 {
     align-items: center;
     justify-content: center;
     padding: 20px;
-    background: rgba(10, 11, 14, 0.72);
-    backdrop-filter: blur(6px);
-    -webkit-backdrop-filter: blur(6px);
+    background: rgba(5, 7, 6, 0.72);
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
 }
 
 .modal-content {
@@ -549,10 +591,12 @@ h1 {
     max-width: 400px;
     max-height: calc(100vh - 40px);
     overflow-y: auto;
-    background: var(--surface-1);
+    background: var(--surface);
+    border: 1px solid var(--accent-border);
     border-radius: var(--radius-lg);
-    padding: 28px 24px;
-    box-shadow: var(--shadow-modal);
+    padding: 28px;
+    box-shadow: 0 24px 60px rgba(0, 0, 0, 0.6),
+                0 0 30px rgba(122, 240, 164, 0.08);
 }
 
 .modal-header {
@@ -561,13 +605,14 @@ h1 {
 
 .modal-header h2 {
     font-size: 1.15rem;
-    font-weight: 650;
-    letter-spacing: -0.01em;
+    font-weight: 600;
+    color: var(--text-bright);
     margin-bottom: 6px;
 }
 
 .modal-header p {
-    font-size: 0.9rem;
+    font-size: 0.88rem;
+    line-height: 1.55;
     color: var(--text-secondary);
     overflow-wrap: break-word;
 }
@@ -580,21 +625,23 @@ h1 {
 
 .form-group label {
     display: block;
-    font-size: 0.82rem;
-    font-weight: 500;
-    color: var(--text-secondary);
-    margin-bottom: 6px;
+    font-family: var(--mono);
+    font-size: 0.72rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    margin-bottom: 7px;
 }
 
 .form-group input {
     width: 100%;
-    font-family: inherit;
-    font-size: 1rem;
-    color: var(--text);
+    font-family: var(--mono);
+    font-size: 0.92rem;
+    color: var(--text-bright);
     background: var(--bg);
-    border: 1px solid transparent;
-    border-radius: 10px;
-    padding: 12px 14px;
+    border: 1px solid rgba(122, 240, 164, 0.25);
+    border-radius: var(--radius);
+    padding: 13px 14px;
     transition: border-color 0.15s ease;
 }
 
@@ -605,6 +652,7 @@ h1 {
 .form-group input:focus {
     outline: none;
     border-color: var(--accent);
+    box-shadow: var(--glow-sm);
 }
 
 .signup-form .submit-btn {
@@ -614,16 +662,15 @@ h1 {
 
 .skip-btn {
     width: 100%;
-    font-size: 0.88rem;
-    font-weight: 500;
+    font-family: var(--mono);
+    font-size: 0.8rem;
     color: var(--text-muted);
     padding: 11px;
-    border-radius: var(--pill);
     transition: color 0.15s ease;
 }
 
 .skip-btn:hover {
-    color: var(--text-secondary);
+    color: var(--text);
 }
 
 .privacy-note {
@@ -647,24 +694,23 @@ h1 {
     width: 100%;
     text-align: left;
     padding: 16px;
-    background: var(--surface-2);
+    background: var(--accent-faint);
+    border: 1px solid var(--accent-dim);
     border-radius: var(--radius);
-    transition: background-color 0.15s ease;
+    transition: border-color 0.15s ease, background-color 0.15s ease;
 }
 
 .option-btn-large:hover {
-    background: var(--surface-3);
+    border-color: var(--accent-border);
+    background: var(--accent-soft);
 }
 
 .option-btn-large.primary {
     background: var(--accent-soft);
+    border-color: var(--accent);
+    box-shadow: var(--glow-sm);
 }
 
-.option-btn-large.primary:hover {
-    background: rgba(224, 68, 110, 0.16);
-}
-
-/* Emoji icons read as clutter in this direction. */
 .option-btn-large .btn-icon {
     display: none;
 }
@@ -673,11 +719,11 @@ h1 {
     display: block;
     font-size: 0.95rem;
     font-weight: 600;
-    color: var(--text);
+    color: var(--text-bright);
 }
 
 .option-btn-large.primary strong {
-    color: var(--accent-bright);
+    color: var(--accent);
 }
 
 .option-btn-large small {
@@ -690,12 +736,13 @@ h1 {
 /* ---------- Footer ---------- */
 
 .footer {
-    margin-top: 36px;
+    margin-top: 40px;
     text-align: center;
 }
 
 .footer p {
-    font-size: 0.78rem;
+    font-family: var(--mono);
+    font-size: 0.75rem;
     color: var(--text-muted);
 }
 
@@ -705,56 +752,46 @@ h1 {
 }
 
 .footer a:hover {
-    color: var(--accent-bright);
+    color: var(--accent);
 }
 
-/* ---------- Mobile (375px must be excellent) ---------- */
+/* ---------- Mobile ---------- */
 
 @media (max-width: 480px) {
     .container {
-        padding: 20px 14px 32px;
-    }
-
-    .header-top {
-        margin-bottom: 14px;
+        padding: 18px 16px 32px;
     }
 
     h1 {
-        font-size: 0.95rem;
-    }
-
-    .quiz-card {
-        padding: 22px 16px;
-        border-radius: var(--radius);
+        font-size: 0.85rem;
     }
 
     .question {
-        font-size: 1.1rem;
+        font-size: 1.18rem;
     }
 
     .option-btn {
         padding: 13px 14px;
-        gap: 12px;
+        gap: 13px;
+        min-height: 52px;
     }
 
     .nav-btns {
-        margin-top: 18px;
+        margin-top: 20px;
     }
 
     .next-btn {
         flex: 1;
+        min-height: 48px;
     }
 
     .back-btn {
-        padding: 12px 18px;
-    }
-
-    .results-card {
-        padding: 32px 18px;
+        padding: 13px 18px;
+        min-height: 48px;
     }
 
     .final-score p {
-        font-size: 2.5rem;
+        font-size: 3.4rem;
     }
 
     .modal {
@@ -765,6 +802,9 @@ h1 {
     /* Bottom sheet on phones */
     .modal-content {
         max-width: none;
+        border-left: none;
+        border-right: none;
+        border-bottom: none;
         border-radius: var(--radius-lg) var(--radius-lg) 0 0;
         padding: 26px 20px calc(26px + env(safe-area-inset-bottom));
     }
