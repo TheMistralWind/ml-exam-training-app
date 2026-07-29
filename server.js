@@ -24,7 +24,61 @@ if (!dbEnabled) {
   console.warn('DATABASE_URL not set: progress tracking disabled, quiz still works');
 }
 
-app.use(cors());
+// MIS-168 H8. The progress API has no auth: the email address IS the
+// identifier, so anyone can read, overwrite or reset anyone else's progress if
+// they know or guess the address. Fixing that properly needs a real login
+// (magic link) and is Robin's product call, not a patch. Until then, two
+// mitigations that cost users nothing:
+//
+// 1. CORS is no longer a wildcard. `app.use(cors())` let ANY website run these
+//    requests from a visitor's browser, with the visitor's network identity.
+//    Now only this app's own origins can. It does not stop curl (nothing here
+//    can), but it does stop a hostile page doing it silently on someone's
+//    behalf. Override with ALLOWED_ORIGINS if the app is ever embedded.
+const ALLOWED_ORIGINS = (process.env.ALLOWED_ORIGINS ||
+  'https://ml-exam-training-app-production.up.railway.app')
+  .split(',').map(s => s.trim()).filter(Boolean);
+
+app.use(cors({
+  origin(origin, cb) {
+    // Same-origin and non-browser callers send no Origin header; allow those,
+    // since blocking them would break the app itself without stopping anyone.
+    if (!origin) return cb(null, true);
+    return cb(null, ALLOWED_ORIGINS.includes(origin));
+  }
+}));
+
+// 2. A small in-process rate limit on the identity-keyed routes. Without this,
+//    the email-as-identifier design is trivially enumerable: a script can walk
+//    a wordlist and learn which addresses have progress stored. Deliberately
+//    dependency-free rather than pulling in express-rate-limit, to avoid adding
+//    supply chain to a live app for twenty lines of logic.
+const rateBuckets = new Map(); // ip -> { count, resetAt }
+const RATE_WINDOW_MS = 60 * 1000;
+const RATE_MAX = 30;
+
+function rateLimit(req, res, next) {
+  const ip = req.ip || req.socket?.remoteAddress || 'unknown';
+  const now = Date.now();
+  let b = rateBuckets.get(ip);
+  if (!b || b.resetAt < now) {
+    b = { count: 0, resetAt: now + RATE_WINDOW_MS };
+    rateBuckets.set(ip, b);
+  }
+  b.count++;
+  if (rateBuckets.size > 5000) {
+    for (const [k, v] of rateBuckets) if (v.resetAt < now) rateBuckets.delete(k);
+  }
+  if (b.count > RATE_MAX) {
+    res.set('Retry-After', Math.ceil((b.resetAt - now) / 1000));
+    return res.status(429).json({ error: 'too many requests' });
+  }
+  next();
+}
+
+app.set('trust proxy', 1); // Railway terminates TLS; without this every request looks like one IP
+app.use(['/api/progress', '/api/progress/save', '/api/progress/reset'], rateLimit);
+
 app.use(express.json());
 app.use(express.static('public'));
 
