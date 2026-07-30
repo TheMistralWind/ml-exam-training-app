@@ -593,14 +593,29 @@ function showResults() {
     const topicBreakdown = document.getElementById('topicBreakdown');
     topicBreakdown.innerHTML = '<h4>Performance by Topic:</h4>';
 
+    // MIS-168 H8: `topic` is a STORED value that originates from request data,
+    // and /api/progress/save is unauthenticated with the email as the only
+    // identifier. So an attacker could write a topic key like
+    // `<img src=x onerror=...>` against someone else's email, and it would
+    // execute in that person's browser when they viewed their results.
+    // Built with textContent instead of innerHTML: the value can no longer be
+    // parsed as markup, whatever it contains.
     Object.entries(topicStats).forEach(([topic, stats]) => {
         const topicPercentage = Math.round((stats.correct / stats.total) * 100);
         const topicItem = document.createElement('div');
         topicItem.className = 'topic-item';
-        topicItem.innerHTML = `
-            <span>${topic}</span>
-            <span><strong>${stats.correct}/${stats.total}</strong> (${topicPercentage}%)</span>
-        `;
+
+        const nameEl = document.createElement('span');
+        nameEl.textContent = topic;
+
+        const statsEl = document.createElement('span');
+        const scoreEl = document.createElement('strong');
+        scoreEl.textContent = `${stats.correct}/${stats.total}`;
+        statsEl.appendChild(scoreEl);
+        statsEl.appendChild(document.createTextNode(` (${topicPercentage}%)`));
+
+        topicItem.appendChild(nameEl);
+        topicItem.appendChild(statsEl);
         topicBreakdown.appendChild(topicItem);
     });
 }
