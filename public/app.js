@@ -102,6 +102,8 @@ const emailInput = document.getElementById('emailInput');
 const signInBtn = document.getElementById('signInBtn');
 const signInForm = document.getElementById('signInForm');
 const signInEmailInput = document.getElementById('signInEmailInput');
+const signInSubmitBtn = document.getElementById('signInSubmitBtn');
+const signInStatus = document.getElementById('signInStatus');
 const skipSignupBtn = document.getElementById('skipSignupBtn');
 const cancelSignInBtn = document.getElementById('cancelSignInBtn');
 const donateBtn = document.getElementById('donateBtn');
@@ -180,19 +182,23 @@ async function saveProgress(email) {
     }
 }
 
-async function loadProgress(email) {
+// Returns { progress } or { reason }: not_found, rate_limited, server_error, network_error
+async function fetchProgress(email) {
     try {
         const response = await fetch(`/api/progress/${encodeURIComponent(email)}`);
-        const data = await response.json();
+        if (response.status === 429) return { reason: 'rate_limited' };
+        if (!response.ok) return { reason: 'server_error' };
 
-        if (data.exists) {
-            return data.progress;
-        }
-        return null;
+        const data = await response.json();
+        return data.exists ? { progress: data.progress } : { reason: 'not_found' };
     } catch (error) {
         console.error('Error loading progress:', error);
-        return null;
+        return { reason: 'network_error' };
     }
+}
+
+async function loadProgress(email) {
+    return (await fetchProgress(email)).progress || null;
 }
 
 async function resetProgress(email) {
@@ -232,6 +238,20 @@ function showSignInModal() {
 function hideSignInModal() {
     signInModal.classList.add('hidden');
     signInEmailInput.value = '';
+    setSignInStatus('');
+}
+
+const SIGN_IN_MESSAGES = {
+    not_found: 'No saved progress found for this email.',
+    finished: 'This run is already finished. Cancel to start a new quiz.',
+    rate_limited: 'Too many attempts. Wait a minute and try again.',
+    server_error: 'Something went wrong. Try again.',
+    network_error: 'Something went wrong. Check your connection and try again.'
+};
+
+function setSignInStatus(message) {
+    signInStatus.textContent = message;
+    signInStatus.classList.toggle('hidden', !message);
 }
 
 function showWelcomeModal(email, progress) {
@@ -692,7 +712,14 @@ signInForm.addEventListener('submit', async (e) => {
     const email = signInEmailInput.value.trim();
 
     if (email) {
-        const progress = await loadProgress(email);
+        setSignInStatus('');
+        signInSubmitBtn.disabled = true;
+        signInSubmitBtn.textContent = 'Loading…';
+
+        const { progress, reason } = await fetchProgress(email);
+
+        signInSubmitBtn.disabled = false;
+        signInSubmitBtn.textContent = 'Load progress';
 
         if (progress && progress.currentQuestionIndex < questions.length) {
             userEmail = email;
@@ -702,7 +729,9 @@ signInForm.addEventListener('submit', async (e) => {
             hideSignInModal();
             showWelcomeModal(email, progress);
         } else {
-            alert('No saved progress found for this email.');
+            const failure = progress ? 'finished' : reason;
+            setSignInStatus(SIGN_IN_MESSAGES[failure]);
+            track('sign_in_failed', { reason: failure });
         }
     }
 });

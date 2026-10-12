@@ -2,6 +2,7 @@
 - Add Back button with read-only review mode
 - Show Google search link for both correct and incorrect answers
 - Sanitize duplicate-correct options at CSV load on server
+- Show sign-in failures inline with a loading state, and track `sign_in_failed`
 - Agent: auto
 
 # Database Structure Upgrade
