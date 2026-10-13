@@ -13,7 +13,7 @@
     --text: #c9d4cc;
     --text-bright: #e8f0ea;
     --text-secondary: #9faea3;
-    --text-muted: #6d7a70;
+    --text-muted: #76827a;           /* 4.8:1 on the page, 4.7:1 on surfaces */
 
     --accent: #7af0a4;              /* phosphor green */
     --accent-border: rgba(122, 240, 164, 0.30);
