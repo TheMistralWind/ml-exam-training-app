@@ -1,15 +1,36 @@
+// ML exam trainer, front end.
+//
+// Two kinds of run:
+//  - the main run: every question once, in a shuffled order, in rounds of
+//    ten; this is what the score, the final results and the saved server
+//    progress describe;
+//  - practice decks: the questions of one topic, or the ones answered wrong
+//    so far; answers here never change the main score, and a question stays
+//    in the missed deck until it is answered right.
+// A round summary appears after every ten answers and when a deck ends.
+
+const ROUND_SIZE = 10;
+
 let questions = [];
+let qById = new Map();
 let currentQuestionIndex = 0;
 let score = 0;
 let answered = 0;
 let topicStats = {};
 let userEmail = null;
-let hasShownSignup = false;
 let sourceSlug = 'ml-app';
-let answerHistory = {}; // questionId -> { selectedOption, correct, correctAnswer, topic, legacy }
+let answerHistory = {}; // questionId -> { selectedOption, correct, correctAnswer, topic, legacy, explanation, at }
 let legacyAnsweredIds = new Set(); // questions answered before per-question history existed
 let legacyThreshold = 0; // number of leading questions considered answered before history existed
 let lastNav = null; // 'next' | 'back' | null
+
+// Practice state. `practice` is null in the main run; otherwise
+// { mode: 'topic' | 'missed', topic, deck: [ids], index, answers: { position: entry } }.
+// `practiceHistory` keeps the latest practice result per question so the
+// missed deck and the topic picker can see what the student still gets wrong.
+let practice = null;
+let practiceHistory = {}; // questionId -> { correct, at }
+let screenBeforePicker = 'quiz';
 
 // PostHog event helper (safe if PostHog failed to load)
 function track(event, props) {
@@ -62,6 +83,14 @@ function scrollQuestionToTop() {
     }
 }
 
+function scrollPageToTop() {
+    try {
+        window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+    } catch (e) {
+        // noop
+    }
+}
+
 // Capture source from URL parameter on page load
 (function initializeSource() {
     const urlParams = new URLSearchParams(window.location.search);
@@ -84,6 +113,7 @@ const topicBadge = document.getElementById('topicBadge');
 const optionsContainer = document.getElementById('optionsContainer');
 const feedback = document.getElementById('feedback');
 const feedbackText = document.getElementById('feedbackText');
+const explanationText = document.getElementById('explanationText');
 const searchSuggestion = document.getElementById('searchSuggestion');
 const searchLink = document.getElementById('searchLink');
 const nextBtn = document.getElementById('nextBtn');
@@ -92,21 +122,25 @@ const searchLinkInline = document.getElementById('searchLinkInline');
 const questionCounter = document.getElementById('questionCounter');
 const scoreCounter = document.getElementById('scoreCounter');
 const progressBar = document.getElementById('progressBar');
+const modeLabel = document.getElementById('modeLabel');
+const modeChangeBtn = document.getElementById('modeChangeBtn');
 const quizContainer = document.getElementById('quizContainer');
 const resultsContainer = document.getElementById('resultsContainer');
-const signupModal = document.getElementById('signupModal');
+const summaryContainer = document.getElementById('summaryContainer');
+const pickerContainer = document.getElementById('pickerContainer');
 const welcomeModal = document.getElementById('welcomeModal');
 const signInModal = document.getElementById('signInModal');
-const signupForm = document.getElementById('signupForm');
-const emailInput = document.getElementById('emailInput');
 const signInBtn = document.getElementById('signInBtn');
 const signInForm = document.getElementById('signInForm');
 const signInEmailInput = document.getElementById('signInEmailInput');
 const signInSubmitBtn = document.getElementById('signInSubmitBtn');
 const signInStatus = document.getElementById('signInStatus');
-const skipSignupBtn = document.getElementById('skipSignupBtn');
 const cancelSignInBtn = document.getElementById('cancelSignInBtn');
 const donateBtn = document.getElementById('donateBtn');
+const summarySignup = document.getElementById('summarySignup');
+const summaryEmail = document.getElementById('summaryEmail');
+const summarySignupStatus = document.getElementById('summarySignupStatus');
+const shareNote = document.getElementById('shareNote');
 
 // Shuffle array using Fisher-Yates algorithm
 function shuffleArray(array) {
@@ -118,9 +152,10 @@ function shuffleArray(array) {
     return shuffled;
 }
 
-// LocalStorage helpers
-function saveToLocalStorage() {
-    const progress = {
+// ---------------------------------------------------------------- persistence
+
+function progressSnapshot() {
+    return {
         currentQuestionIndex,
         score,
         answered,
@@ -128,16 +163,48 @@ function saveToLocalStorage() {
         questionOrder: questions.map(q => q.id),
         answerHistory
     };
-    localStorage.setItem('quizProgress', JSON.stringify(progress));
+}
+
+function saveToLocalStorage() {
+    localStorage.setItem('quizProgress', JSON.stringify(progressSnapshot()));
 }
 
 function loadFromLocalStorage() {
-    const saved = localStorage.getItem('quizProgress');
-    return saved ? JSON.parse(saved) : null;
+    try {
+        const saved = localStorage.getItem('quizProgress');
+        return saved ? JSON.parse(saved) : null;
+    } catch (e) {
+        return null;
+    }
 }
 
 function clearLocalStorage() {
     localStorage.removeItem('quizProgress');
+}
+
+function savePracticeState() {
+    localStorage.setItem('practiceState', JSON.stringify({ practice, practiceHistory }));
+}
+
+function loadPracticeState() {
+    try {
+        const saved = localStorage.getItem('practiceState');
+        if (!saved) return;
+        const parsed = JSON.parse(saved);
+        practiceHistory = parsed.practiceHistory || {};
+        const p = parsed.practice;
+        if (p && Array.isArray(p.deck) && p.deck.every(id => qById.has(id)) && p.index < p.deck.length) {
+            practice = { mode: p.mode, topic: p.topic || null, deck: p.deck, index: p.index, answers: p.answers || {} };
+        }
+    } catch (e) {
+        practiceHistory = {};
+    }
+}
+
+function clearPracticeState() {
+    practice = null;
+    practiceHistory = {};
+    localStorage.removeItem('practiceState');
 }
 
 function getStoredEmail() {
@@ -152,22 +219,13 @@ function setStoredEmail(email) {
 async function saveProgress(email) {
     try {
         track('progress_save_attempt', { source: sourceSlug });
-        const progress = {
-            currentQuestionIndex,
-            score,
-            answered,
-            topicStats,
-            questionOrder: questions.map(q => q.id),
-            answerHistory
-        };
-
         const response = await fetch('/api/progress/save', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 email,
                 source_slug: sourceSlug,
-                progress
+                progress: progressSnapshot()
             })
         });
 
@@ -220,15 +278,7 @@ async function resetProgress(email) {
     }
 }
 
-// Modal management
-function showSignupModal() {
-    signupModal.classList.remove('hidden');
-    track('signup_modal_shown');
-}
-
-function hideSignupModal() {
-    signupModal.classList.add('hidden');
-}
+// ---------------------------------------------------------------- modals
 
 function showSignInModal() {
     signInModal.classList.remove('hidden');
@@ -275,14 +325,6 @@ function updateSignInButton() {
     }
 }
 
-// Check if user should see signup modal
-function checkSignupTrigger() {
-    if (!userEmail && answered === 5 && !hasShownSignup) {
-        hasShownSignup = true;
-        showSignupModal();
-    }
-}
-
 // Handle donation button click
 async function handleDonationClick() {
     try {
@@ -294,7 +336,6 @@ async function handleDonationClick() {
             body: JSON.stringify({ email })
         });
 
-        // Track in Plausible
         track('donate_click');
 
         // Open MobilePay link
@@ -306,13 +347,119 @@ async function handleDonationClick() {
     }
 }
 
+// ---------------------------------------------------------------- screens
+
+function showScreen(name) {
+    quizContainer.classList.toggle('hidden', name !== 'quiz');
+    summaryContainer.classList.toggle('hidden', name !== 'summary');
+    pickerContainer.classList.toggle('hidden', name !== 'picker');
+    resultsContainer.classList.toggle('hidden', name !== 'results');
+}
+
+function activeScreen() {
+    if (!summaryContainer.classList.contains('hidden')) return 'summary';
+    if (!pickerContainer.classList.contains('hidden')) return 'picker';
+    if (!resultsContainer.classList.contains('hidden')) return 'results';
+    return 'quiz';
+}
+
+// ---------------------------------------------------------------- deck helpers
+
+function currentDeckLength() {
+    return practice ? practice.deck.length : questions.length;
+}
+
+function currentPosition() {
+    return practice ? practice.index : currentQuestionIndex;
+}
+
+function questionAt(position) {
+    return practice ? qById.get(practice.deck[position]) : questions[position];
+}
+
+function currentQuestion() {
+    return questionAt(currentPosition());
+}
+
+function entryAt(position) {
+    if (practice) return practice.answers[position] || null;
+    const q = questions[position];
+    return q ? answerHistory[q.id] || null : null;
+}
+
+function isRoundEnd(position) {
+    return (position + 1) % ROUND_SIZE === 0 || position === currentDeckLength() - 1;
+}
+
+function roundNumber(position) {
+    return Math.floor(position / ROUND_SIZE) + 1;
+}
+
+// Latest result for a question across the main run and practice.
+// Old main-run entries carry no timestamp, so a practice attempt wins over them.
+function latestResult(id) {
+    const main = answerHistory[id];
+    const prac = practiceHistory[id];
+    if (prac && (!main || prac.at > (main.at || 0))) return prac.correct;
+    if (main) return !!main.correct;
+    return null;
+}
+
+function missedQuestionIds() {
+    return questions.map(q => q.id).filter(id => latestResult(id) === false);
+}
+
+function topicSummary() {
+    const byTopic = new Map();
+    questions.forEach(q => {
+        if (!byTopic.has(q.topic)) byTopic.set(q.topic, { topic: q.topic, total: 0, answered: 0, correct: 0 });
+        const t = byTopic.get(q.topic);
+        t.total++;
+        const r = latestResult(q.id);
+        if (r !== null) {
+            t.answered++;
+            if (r) t.correct++;
+        }
+    });
+    return [...byTopic.values()];
+}
+
+function deckLabel() {
+    if (!practice) return 'All questions';
+    if (practice.mode === 'missed') return 'Missed questions';
+    return `Practice: ${practice.topic}`;
+}
+
+function updateHeader() {
+    const position = currentPosition();
+    const length = currentDeckLength();
+    modeLabel.textContent = deckLabel();
+    modeChangeBtn.textContent = practice ? 'Change' : 'Practice a topic';
+
+    if (practice) {
+        const done = Object.keys(practice.answers).length;
+        const right = Object.values(practice.answers).filter(a => a.correct).length;
+        questionCounter.textContent = `Question ${Math.min(position + 1, length)} of ${length}`;
+        scoreCounter.textContent = `This deck: ${right}/${done}`;
+        progressBar.style.width = `${(position / Math.max(length, 1)) * 100}%`;
+    } else {
+        questionCounter.textContent = `Round ${roundNumber(position)} · ${(position % ROUND_SIZE) + 1} of ${ROUND_SIZE}`;
+        scoreCounter.textContent = `Score: ${score}/${answered}`;
+        progressBar.style.width = `${(position / Math.max(length, 1)) * 100}%`;
+    }
+}
+
+// ---------------------------------------------------------------- loading
+
 // Load questions from API
 async function loadQuestions() {
     try {
         const response = await fetch('/api/questions');
         const loadedQuestions = await response.json();
         questions = shuffleArray(loadedQuestions);
+        qById = new Map(questions.map(q => [q.id, q]));
         console.log(`Loaded ${questions.length} questions (randomized)`);
+        loadPracticeState();
 
         // Check if user has saved progress
         const storedEmail = getStoredEmail();
@@ -323,14 +470,19 @@ async function loadQuestions() {
                 userEmail = storedEmail;
                 updateSignInButton();
                 showWelcomeModal(storedEmail, progress);
-            } else {
-                updateSignInButton();
-                displayQuestion();
+                return;
             }
+            updateSignInButton();
         } else {
             updateSignInButton();
-            displayQuestion();
+            // Progress saved in this browser continues without an account.
+            const saved = loadFromLocalStorage();
+            if (saved && Array.isArray(saved.questionOrder) && saved.questionOrder.length) {
+                restoreProgress(saved);
+                return;
+            }
         }
+        displayQuestion();
     } catch (error) {
         console.error('Error loading questions:', error);
         questionText.textContent = 'Error loading questions. Please refresh the page.';
@@ -339,17 +491,27 @@ async function loadQuestions() {
 
 // Restore progress from saved data
 function restoreProgress(progress) {
-    // Restore question order
+    // Restore question order. Questions added to the bank after the save
+    // were never part of the order, so they go to the end in random order.
     const questionMap = new Map(questions.map(q => [q.id, q]));
-    questions = progress.questionOrder
-        .map(id => questionMap.get(id))
-        .filter(q => q !== undefined);
+    const seen = new Set();
+    const ordered = [];
+    (progress.questionOrder || []).forEach(id => {
+        const q = questionMap.get(id);
+        if (q && !seen.has(id)) {
+            ordered.push(q);
+            seen.add(id);
+        }
+    });
+    const added = shuffleArray(questions.filter(q => !seen.has(q.id)));
+    questions = ordered.concat(added);
+    qById = new Map(questions.map(q => [q.id, q]));
 
     // Restore state
-    currentQuestionIndex = progress.currentQuestionIndex;
-    score = progress.score;
-    answered = progress.answered;
-    topicStats = progress.topicStats;
+    currentQuestionIndex = Math.min(progress.currentQuestionIndex || 0, questions.length);
+    score = progress.score || 0;
+    answered = progress.answered || 0;
+    topicStats = progress.topicStats || {};
     answerHistory = progress.answerHistory || {};
 
     // Derive legacy set and threshold for first `answered` questions without answerHistory
@@ -365,41 +527,58 @@ function restoreProgress(progress) {
     displayQuestion();
 }
 
+// ---------------------------------------------------------------- question screen
+
+function renderFeedback(entry) {
+    feedback.classList.remove('hidden');
+    feedback.classList.toggle('correct', !!entry.correct);
+    feedback.classList.toggle('incorrect', !entry.correct);
+    feedbackText.textContent = entry.correct
+        ? '✓ Correct.'
+        : `✗ Not quite. The answer is ${entry.correctAnswer}.`;
+    explanationText.textContent = entry.explanation || '';
+    explanationText.classList.toggle('hidden', !entry.explanation);
+    searchSuggestion.classList.toggle('hidden', !!entry.correct);
+}
+
+function setNextLabel(position) {
+    nextBtn.textContent = isRoundEnd(position) ? 'Round summary' : 'Next question';
+}
+
 // Display current question
 function displayQuestion() {
-    if (currentQuestionIndex >= questions.length) {
-        showResults();
+    const position = currentPosition();
+    if (position >= currentDeckLength()) {
+        if (practice) {
+            leavePractice();
+        } else {
+            showResults();
+        }
         return;
     }
 
-    const question = questions[currentQuestionIndex];
+    showScreen('quiz');
+    const question = currentQuestion();
 
     // Reset state
     feedback.classList.add('hidden');
     nextBtn.classList.add('hidden');
     searchSuggestion.classList.add('hidden');
-    if (backBtn) backBtn.classList.toggle('hidden', currentQuestionIndex === 0);
+    explanationText.classList.add('hidden');
+    if (backBtn) backBtn.classList.toggle('hidden', position === 0);
 
     // Update question
     questionText.textContent = question.question;
     topicBadge.textContent = question.topic;
-    // Update inline search link for current question
-    if (searchLinkInline) {
-        const q = encodeURIComponent(`${question.topic} ${question.question}`);
-        searchLinkInline.href = `https://www.google.com/search?q=${q}`;
-    }
+    const searchQuery = `https://www.google.com/search?q=${encodeURIComponent(`${question.topic} ${question.question}`)}`;
+    if (searchLinkInline) searchLinkInline.href = searchQuery;
+    searchLink.href = searchQuery;
 
-    // Update counters
-    questionCounter.textContent = `Question ${currentQuestionIndex + 1} of ${questions.length}`;
-    scoreCounter.textContent = `Score: ${score}/${answered}`;
-
-    // Update progress bar
-    const progress = ((currentQuestionIndex) / questions.length) * 100;
-    progressBar.style.width = `${progress}%`;
+    updateHeader();
 
     // Display options
     const optionButtons = optionsContainer.querySelectorAll('.option-btn');
-    optionButtons.forEach((btn, index) => {
+    optionButtons.forEach((btn) => {
         const optionKey = btn.dataset.option;
         const optionTextEl = btn.querySelector('.option-text');
 
@@ -414,8 +593,8 @@ function displayQuestion() {
         newBtn.addEventListener('click', () => handleAnswer(optionKey));
     });
 
-    // If already answered in this version, show review state
-    const existing = answerHistory[question.id];
+    // If already answered, show review state
+    const existing = entryAt(position);
     if (existing) {
         const optionButtonsNow = optionsContainer.querySelectorAll('.option-btn');
         optionButtonsNow.forEach(btn => {
@@ -427,30 +606,28 @@ function displayQuestion() {
                 btn.classList.add('correct');
             }
         });
-        feedback.classList.remove('hidden');
-        feedback.classList.toggle('correct', !!existing.correct);
-        feedback.classList.toggle('incorrect', !existing.correct);
-        feedbackText.textContent = existing.correct
-            ? '✓ Correct! Well done!'
-            : `✗ Incorrect. The correct answer is ${existing.correctAnswer}.`;
+        renderFeedback(existing);
+        setNextLabel(position);
         nextBtn.classList.remove('hidden');
-        scrollNextIntoView();
+        if (lastNav === 'back') scrollQuestionToTop();
+        lastNav = null;
         return;
     }
 
     // If legacy-answered (pre-history), allow skipping and show Next immediately
-    const isLegacyIndex = currentQuestionIndex < legacyThreshold && !answerHistory[question.id];
+    const isLegacyIndex = !practice && position < legacyThreshold && !answerHistory[question.id];
     if (isLegacyIndex) {
         feedback.classList.remove('hidden');
         feedback.classList.remove('incorrect');
         feedback.classList.add('correct');
         feedbackText.textContent = 'Previously answered earlier. Score will not change here.';
+        setNextLabel(position);
         nextBtn.classList.remove('hidden');
         scrollNextIntoView();
     }
 
     // Scroll to top only when moving forward to a new question
-    if (lastNav === 'next' && !existing && !isLegacyIndex) {
+    if (lastNav === 'next' && !isLegacyIndex) {
         scrollQuestionToTop();
     }
     lastNav = null;
@@ -464,7 +641,8 @@ async function handleAnswer(selectedOption) {
     optionButtons.forEach(btn => btn.disabled = true);
 
     try {
-        const question = questions[currentQuestionIndex];
+        const position = currentPosition();
+        const question = currentQuestion();
         const response = await fetch('/api/check-answer', {
             method: 'POST',
             headers: {
@@ -478,115 +656,375 @@ async function handleAnswer(selectedOption) {
 
         const result = await response.json();
         const questionId = question.id;
-        const isLegacy = (currentQuestionIndex < legacyThreshold) && !answerHistory[questionId];
-        if (!isLegacy) {
-            answered++;
-        }
-
-        // Track topic statistics
-        if (!topicStats[result.topic]) {
-            topicStats[result.topic] = { correct: 0, total: 0 };
-        }
-        if (!isLegacy) {
-            topicStats[result.topic].total++;
-        }
-
-        // Show feedback
-        if (result.correct) {
-            if (!isLegacy) {
-                score++;
-                topicStats[result.topic].correct++;
-            }
-            feedback.classList.remove('incorrect');
-            feedback.classList.add('correct');
-            feedbackText.textContent = '✓ Correct! Well done!';
-            track('answer_correct', { topic: result.topic });
-
-            // Highlight correct answer
-            optionButtons.forEach(btn => {
-                if (btn.dataset.option === selectedOption) {
-                    btn.classList.add('correct');
-                }
-            });
-        } else {
-            feedback.classList.remove('correct');
-            feedback.classList.add('incorrect');
-            feedbackText.textContent = `✗ Incorrect. The correct answer is ${result.correctAnswer}.`;
-            track('answer_incorrect', { topic: result.topic });
-
-            // Highlight incorrect and correct answers
-            optionButtons.forEach(btn => {
-                if (btn.dataset.option === selectedOption) {
-                    btn.classList.add('incorrect');
-                }
-                if (btn.dataset.option === result.correctAnswer) {
-                    btn.classList.add('correct');
-                }
-            });
-
-            // Show search suggestion for wrong answers
-            searchSuggestion.classList.remove('hidden');
-            const searchQuery = encodeURIComponent(`${result.topic} ${result.question}`);
-            searchLink.href = `https://www.google.com/search?q=${searchQuery}`;
-        }
-
-        // Reflect the new score immediately
-        scoreCounter.textContent = `Score: ${score}/${answered}`;
-
-        // Store in answer history (mark legacy), then show feedback
-        answerHistory[questionId] = {
+        const entry = {
             selectedOption,
             correct: !!result.correct,
             correctAnswer: result.correctAnswer,
             topic: result.topic,
-            legacy: !!isLegacy
+            explanation: result.explanation || '',
+            at: Date.now()
         };
 
-        feedback.classList.remove('hidden');
+        if (practice) {
+            practice.answers[position] = entry;
+            practiceHistory[questionId] = { correct: entry.correct, at: entry.at };
+            savePracticeState();
+            track(entry.correct ? 'answer_correct' : 'answer_incorrect', { topic: result.topic, mode: practice.mode });
+        } else {
+            const isLegacy = (position < legacyThreshold) && !answerHistory[questionId];
+            entry.legacy = !!isLegacy;
+            if (!isLegacy) {
+                answered++;
+            }
+
+            // Track topic statistics
+            if (!topicStats[result.topic]) {
+                topicStats[result.topic] = { correct: 0, total: 0 };
+            }
+            if (!isLegacy) {
+                topicStats[result.topic].total++;
+                if (result.correct) {
+                    score++;
+                    topicStats[result.topic].correct++;
+                }
+            }
+            answerHistory[questionId] = entry;
+            track(entry.correct ? 'answer_correct' : 'answer_incorrect', { topic: result.topic, mode: 'main' });
+        }
+
+        // Highlight the chosen option and, when wrong, the right one
+        optionButtons.forEach(btn => {
+            if (btn.dataset.option === selectedOption) {
+                btn.classList.add(entry.correct ? 'correct' : 'incorrect');
+            }
+            if (!entry.correct && btn.dataset.option === result.correctAnswer) {
+                btn.classList.add('correct');
+            }
+        });
+
+        renderFeedback(entry);
+        updateHeader();
+        setNextLabel(position);
         nextBtn.classList.remove('hidden');
         // After layout updates, scroll Next button into view (mobile convenience)
         setTimeout(scrollNextIntoView, 50);
 
-        // Save progress to localStorage
-        saveToLocalStorage();
+        if (!practice) {
+            // Save progress to localStorage
+            saveToLocalStorage();
 
-        // Save to server if user has email
-        if (userEmail) {
-            await saveProgress(userEmail);
+            // Save to server if user has email
+            if (userEmail) {
+                await saveProgress(userEmail);
+            }
         }
-
-        // Check if we should show signup modal (after 5 questions)
-        checkSignupTrigger();
-
     } catch (error) {
         console.error('Error checking answer:', error);
-        feedbackText.textContent = 'Error checking answer. Please try again.';
+        optionButtons.forEach(btn => btn.disabled = false);
+        feedback.classList.remove('correct');
+        feedback.classList.add('incorrect');
+        feedbackText.textContent = 'Could not check the answer. Check your connection and pick again.';
+        explanationText.classList.add('hidden');
+        searchSuggestion.classList.add('hidden');
         feedback.classList.remove('hidden');
     }
 }
 
-// Move to next question
+// Move to next question, or to the round summary at a round boundary
 nextBtn.addEventListener('click', () => {
-    lastNav = 'next';
-    currentQuestionIndex++;
-    displayQuestion();
+    const position = currentPosition();
+    if (entryAt(position) && isRoundEnd(position)) {
+        showSummary(position);
+        return;
+    }
+    advance();
 });
+
+function advance() {
+    lastNav = 'next';
+    if (practice) {
+        practice.index++;
+        savePracticeState();
+    } else {
+        currentQuestionIndex++;
+        saveToLocalStorage();
+    }
+    displayQuestion();
+}
 
 // Move to previous question
 if (backBtn) {
     backBtn.addEventListener('click', () => {
-        if (currentQuestionIndex > 0) {
+        const position = currentPosition();
+        if (position > 0) {
             lastNav = 'back';
-            currentQuestionIndex--;
+            if (practice) {
+                practice.index--;
+                savePracticeState();
+            } else {
+                currentQuestionIndex--;
+                saveToLocalStorage();
+            }
             displayQuestion();
         }
     });
 }
 
-// Show final results
+// ---------------------------------------------------------------- round summary
+
+function showSummary(position) {
+    const start = position - (position % ROUND_SIZE);
+    const ids = [];
+    const entries = [];
+    for (let i = start; i <= position; i++) {
+        const q = questionAt(i);
+        const e = entryAt(i);
+        if (q && e && !e.legacy) {
+            ids.push(q.id);
+            entries.push(e);
+        }
+    }
+    const correct = entries.filter(e => e.correct).length;
+    const missed = ids.filter((id, i) => !entries[i].correct);
+    const deckDone = practice && position === practice.deck.length - 1;
+
+    let title;
+    if (!practice) title = position === questions.length - 1 ? 'Last round done' : `Round ${roundNumber(position)} done`;
+    else if (deckDone) title = practice.mode === 'missed' ? 'Missed questions: deck done' : `${practice.topic}: deck done`;
+    else title = practice.mode === 'missed' ? 'Missed questions: round done' : `${practice.topic}: round done`;
+    document.getElementById('summaryTitle').textContent = title;
+    document.getElementById('summaryScore').textContent = String(correct);
+    document.getElementById('summaryTotal').textContent = String(entries.length);
+
+    // Topics in this round
+    const topicsEl = document.getElementById('summaryTopics');
+    topicsEl.textContent = '';
+    const byTopic = new Map();
+    entries.forEach(e => {
+        if (!byTopic.has(e.topic)) byTopic.set(e.topic, { correct: 0, total: 0 });
+        const t = byTopic.get(e.topic);
+        t.total++;
+        if (e.correct) t.correct++;
+    });
+    [...byTopic.entries()].sort((a, b) => (a[1].correct / a[1].total) - (b[1].correct / b[1].total)).forEach(([topic, stats]) => {
+        topicsEl.appendChild(topicItem(topic, stats.correct, stats.total));
+    });
+
+    // What was missed, with the answer and why
+    const missedEl = document.getElementById('summaryMissed');
+    missedEl.textContent = '';
+    if (missed.length) {
+        const h = document.createElement('h3');
+        h.textContent = missed.length === 1 ? 'The one you missed' : `The ${missed.length} you missed`;
+        missedEl.appendChild(h);
+        missed.forEach(id => {
+            const q = qById.get(id);
+            const e = entries[ids.indexOf(id)];
+            const item = document.createElement('div');
+            item.className = 'missed-item';
+            const qEl = document.createElement('p');
+            qEl.className = 'missed-q';
+            qEl.textContent = q.question;
+            const aEl = document.createElement('p');
+            aEl.className = 'missed-a';
+            aEl.textContent = `Answer: ${q.options[e.correctAnswer] || e.correctAnswer}`;
+            item.appendChild(qEl);
+            item.appendChild(aEl);
+            if (e.explanation) {
+                const why = document.createElement('p');
+                why.className = 'missed-why';
+                why.textContent = e.explanation;
+                item.appendChild(why);
+            }
+            missedEl.appendChild(item);
+        });
+    }
+
+    // Actions
+    const nextButton = document.getElementById('summaryNextBtn');
+    if (!practice) nextButton.textContent = position === questions.length - 1 ? 'See final results' : 'Next round';
+    else nextButton.textContent = deckDone ? 'Back to all questions' : `Next ${Math.min(ROUND_SIZE, practice.deck.length - position - 1)}`;
+
+    const missedButton = document.getElementById('summaryMissedBtn');
+    missedButton.classList.toggle('hidden', missed.length === 0);
+    missedButton.textContent = missed.length === 1 ? 'Practise the one you missed' : `Practise the ${missed.length} you missed`;
+    missedButton.onclick = () => startPractice('missed', null, missed);
+
+    // Sign-up card: main run only, only without an account
+    summarySignup.classList.toggle('hidden', !!(userEmail || practice));
+    if (!userEmail && !practice) {
+        summarySignupStatus.classList.add('hidden');
+        track('signup_prompt_shown', { where: 'summary', round: roundNumber(position) });
+    }
+    shareNote.textContent = '';
+
+    track('round_completed', {
+        mode: practice ? practice.mode : 'main',
+        round: roundNumber(position),
+        correct,
+        total: entries.length
+    });
+    showScreen('summary');
+    scrollPageToTop();
+}
+
+function topicItem(topic, correct, total) {
+    const item = document.createElement('div');
+    item.className = 'topic-item';
+    const nameEl = document.createElement('span');
+    nameEl.textContent = topic;
+    const statsEl = document.createElement('span');
+    const scoreEl = document.createElement('strong');
+    scoreEl.textContent = `${correct}/${total}`;
+    statsEl.appendChild(scoreEl);
+    statsEl.appendChild(document.createTextNode(` (${Math.round((correct / total) * 100)}%)`));
+    item.appendChild(nameEl);
+    item.appendChild(statsEl);
+    return item;
+}
+
+document.getElementById('summaryNextBtn').addEventListener('click', () => {
+    advance();
+});
+
+document.getElementById('summaryTopicBtn').addEventListener('click', () => openPicker());
+
+summarySignup.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const email = summaryEmail.value.trim();
+    if (!email) return;
+    const button = summarySignup.querySelector('.submit-btn');
+    button.disabled = true;
+    const success = await saveProgress(email);
+    button.disabled = false;
+    summarySignupStatus.classList.remove('hidden');
+    if (success) {
+        userEmail = email;
+        setStoredEmail(email);
+        identifyUser(email);
+        updateSignInButton();
+        track('progress_save_success', { source: sourceSlug, where: 'summary' });
+        summarySignupStatus.classList.add('ok');
+        summarySignupStatus.textContent = 'Saved. Sign in with this email on any device to continue.';
+        summarySignup.querySelector('.summary-signup-row').classList.add('hidden');
+        summarySignup.querySelector('.skip-btn').classList.add('hidden');
+    } else {
+        track('progress_save_failed', { source: sourceSlug, where: 'summary' });
+        summarySignupStatus.classList.remove('ok');
+        summarySignupStatus.textContent = 'Could not save. Check your connection and try again.';
+    }
+});
+
+document.getElementById('summarySignupSkip').addEventListener('click', () => {
+    summarySignup.classList.add('hidden');
+    track('signup_skipped', { where: 'summary' });
+});
+
+document.getElementById('shareBtn').addEventListener('click', async () => {
+    const url = `${window.location.origin}/?source=share`;
+    const text = 'Practice questions for the ML exam, with explanations:';
+    try {
+        if (navigator.share) {
+            await navigator.share({ title: 'ML Exam Trainer', text, url });
+            track('share_click', { method: 'share' });
+            return;
+        }
+        await navigator.clipboard.writeText(url);
+        shareNote.textContent = 'Link copied';
+        track('share_click', { method: 'copy' });
+    } catch (e) {
+        shareNote.textContent = url;
+    }
+});
+
+// ---------------------------------------------------------------- practice decks
+
+function startPractice(mode, topic, ids) {
+    if (!ids.length) return;
+    practice = { mode, topic: topic || null, deck: shuffleArray(ids), index: 0, answers: {} };
+    savePracticeState();
+    track('practice_started', { mode, topic: topic || null, size: ids.length });
+    lastNav = 'next';
+    displayQuestion();
+    scrollPageToTop();
+}
+
+function leavePractice() {
+    practice = null;
+    savePracticeState();
+    // A deck is usually started from a round summary, so the main run's
+    // current question is already answered: move past it instead of showing
+    // it, and its summary, a second time.
+    if (currentQuestionIndex < questions.length && entryAt(currentQuestionIndex) && isRoundEnd(currentQuestionIndex)) {
+        currentQuestionIndex++;
+        saveToLocalStorage();
+    }
+    lastNav = 'next';
+    displayQuestion();
+    scrollPageToTop();
+}
+
+function openPicker() {
+    screenBeforePicker = activeScreen();
+    if (screenBeforePicker === 'picker') screenBeforePicker = 'quiz';
+
+    const missed = missedQuestionIds();
+    const missedBtn = document.getElementById('pickMissedBtn');
+    document.getElementById('pickMissedCount').textContent = missed.length === 0
+        ? 'Nothing missed yet'
+        : `${missed.length} waiting for a right answer`;
+    missedBtn.disabled = missed.length === 0;
+    missedBtn.onclick = () => startPractice('missed', null, missed);
+
+    const list = document.getElementById('pickerTopics');
+    list.textContent = '';
+    const topics = topicSummary().sort((a, b) => {
+        const pa = a.answered ? a.correct / a.answered : 2;
+        const pb = b.answered ? b.correct / b.answered : 2;
+        return pa - pb || a.topic.localeCompare(b.topic);
+    });
+    topics.forEach(t => {
+        const row = document.createElement('button');
+        row.type = 'button';
+        row.className = 'picker-topic';
+        const name = document.createElement('span');
+        name.textContent = `${t.topic} (${t.total})`;
+        const stat = document.createElement('span');
+        stat.className = 'picker-stat';
+        if (t.answered) {
+            const pct = Math.round((t.correct / t.answered) * 100);
+            stat.textContent = `${pct}% of ${t.answered}`;
+            if (pct < 70) stat.classList.add('weak');
+        } else {
+            stat.textContent = 'not started';
+        }
+        row.appendChild(name);
+        row.appendChild(stat);
+        row.addEventListener('click', () => startPractice('topic', t.topic, questions.filter(q => q.topic === t.topic).map(q => q.id)));
+        list.appendChild(row);
+    });
+
+    const back = document.getElementById('pickerBackBtn');
+    back.textContent = practice ? 'Back to all questions' : 'Back';
+    showScreen('picker');
+    scrollPageToTop();
+    track('picker_opened', { missed: missed.length });
+}
+
+document.getElementById('pickerBackBtn').addEventListener('click', () => {
+    if (practice) {
+        leavePractice();
+        return;
+    }
+    showScreen(screenBeforePicker);
+});
+
+modeChangeBtn.addEventListener('click', () => openPicker());
+
+// ---------------------------------------------------------------- final results
+
 function showResults() {
-    quizContainer.classList.add('hidden');
-    resultsContainer.classList.remove('hidden');
+    showScreen('results');
 
     const percentage = Math.round((score / questions.length) * 100);
     track('quiz_completed', { score, total: questions.length, percentage });
@@ -597,15 +1035,15 @@ function showResults() {
     // Performance message
     let message = '';
     if (percentage >= 90) {
-        message = 'Outstanding! You have mastered this material!';
+        message = 'You know this material. Keep the missed ones warm until the exam.';
     } else if (percentage >= 80) {
-        message = 'Excellent work! You have a strong understanding!';
+        message = 'Strong. The missed questions below are where the last points are.';
     } else if (percentage >= 70) {
-        message = 'Good job! Keep reviewing to improve further.';
+        message = 'A pass, with room to spare if you drill the weakest topics.';
     } else if (percentage >= 60) {
-        message = 'Not bad, but there is room for improvement.';
+        message = 'Borderline. Practise the topics under 70% before the exam.';
     } else {
-        message = 'Keep studying! Review the topics and try again.';
+        message = 'Go through the missed questions and their explanations, then try the weakest topics again.';
     }
     document.getElementById('performanceMessage').textContent = message;
 
@@ -620,25 +1058,21 @@ function showResults() {
     // execute in that person's browser when they viewed their results.
     // Built with textContent instead of innerHTML: the value can no longer be
     // parsed as markup, whatever it contains.
-    Object.entries(topicStats).forEach(([topic, stats]) => {
-        const topicPercentage = Math.round((stats.correct / stats.total) * 100);
-        const topicItem = document.createElement('div');
-        topicItem.className = 'topic-item';
+    Object.entries(topicStats)
+        .sort((a, b) => (a[1].correct / a[1].total) - (b[1].correct / b[1].total))
+        .forEach(([topic, stats]) => {
+            topicBreakdown.appendChild(topicItem(topic, stats.correct, stats.total));
+        });
 
-        const nameEl = document.createElement('span');
-        nameEl.textContent = topic;
-
-        const statsEl = document.createElement('span');
-        const scoreEl = document.createElement('strong');
-        scoreEl.textContent = `${stats.correct}/${stats.total}`;
-        statsEl.appendChild(scoreEl);
-        statsEl.appendChild(document.createTextNode(` (${topicPercentage}%)`));
-
-        topicItem.appendChild(nameEl);
-        topicItem.appendChild(statsEl);
-        topicBreakdown.appendChild(topicItem);
-    });
+    const missed = missedQuestionIds();
+    const missedBtn = document.getElementById('resultsMissedBtn');
+    missedBtn.classList.toggle('hidden', missed.length === 0);
+    missedBtn.textContent = `Practise the ${missed.length} you missed`;
+    missedBtn.onclick = () => startPractice('missed', null, missed);
+    scrollPageToTop();
 }
+
+document.getElementById('resultsTopicBtn').addEventListener('click', () => openPicker());
 
 // Restart quiz
 document.getElementById('restartBtn').addEventListener('click', async () => {
@@ -650,14 +1084,13 @@ document.getElementById('restartBtn').addEventListener('click', async () => {
     legacyAnsweredIds = new Set();
     legacyThreshold = 0;
     lastNav = null;
-    hasShownSignup = false;
     track('quiz_restarted');
     questions = shuffleArray(questions);
-    resultsContainer.classList.add('hidden');
-    quizContainer.classList.remove('hidden');
+    qById = new Map(questions.map(q => [q.id, q]));
 
     // Clear progress
     clearLocalStorage();
+    clearPracticeState();
     if (userEmail) {
         await resetProgress(userEmail);
     }
@@ -665,48 +1098,12 @@ document.getElementById('restartBtn').addEventListener('click', async () => {
     displayQuestion();
 });
 
-// Signup form submission
-signupForm.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const email = emailInput.value.trim();
+// ---------------------------------------------------------------- sign in
 
-    if (email) {
-        userEmail = email;
-        setStoredEmail(email);
-        identifyUser(email);
-        updateSignInButton();
-
-        // Save current progress to server
-        const success = await saveProgress(email);
-
-        if (success) {
-            track('progress_save_success', { source: sourceSlug });
-            hideSignupModal();
-            // Show a brief success message
-            feedbackText.textContent = '✓ Progress saved! You can now close and return anytime.';
-            feedback.classList.remove('incorrect');
-            feedback.classList.add('correct');
-            feedback.classList.remove('hidden');
-        } else {
-            track('progress_save_failed', { source: sourceSlug });
-            alert('Failed to save progress. Please try again.');
-        }
-    }
-});
-
-// Skip signup button
-skipSignupBtn.addEventListener('click', () => {
-    hideSignupModal();
-    // Continue with the quiz without saving
-    track('signup_skipped');
-});
-
-// Sign in button in header
 signInBtn.addEventListener('click', () => {
     showSignInModal();
 });
 
-// Sign in form submission
 signInForm.addEventListener('submit', async (e) => {
     e.preventDefault();
     const email = signInEmailInput.value.trim();
@@ -736,7 +1133,6 @@ signInForm.addEventListener('submit', async (e) => {
     }
 });
 
-// Cancel sign in
 cancelSignInBtn.addEventListener('click', () => {
     hideSignInModal();
 });
@@ -747,6 +1143,8 @@ document.getElementById('continueBtn').addEventListener('click', async () => {
     if (storedEmail) {
         const progress = await loadProgress(storedEmail);
         if (progress) {
+            practice = null;
+            savePracticeState();
             restoreProgress(progress);
         }
     }
@@ -760,6 +1158,7 @@ document.getElementById('startFreshBtn').addEventListener('click', async () => {
         await resetProgress(storedEmail);
     }
     clearLocalStorage();
+    clearPracticeState();
     hideWelcomeModal();
     displayQuestion();
     track('resume_start_fresh');

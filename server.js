@@ -83,6 +83,9 @@ app.use(express.json());
 app.use(express.static('public'));
 
 let questions = [];
+// Why the right answer is right, keyed by question id. Served only after an
+// answer is checked, never with the question list, so it cannot leak answers.
+let explanations = {};
 
 // Deterministic per-question option shuffle, stable across restarts and deploys
 // so saved answer letters keep pointing at the same option text.
@@ -103,33 +106,71 @@ function shuffleOptions(id, options, correctLetter) {
   return { options: newOptions, correctLetter: newCorrect };
 }
 
-function loadQuestions() {
+// The bank is questions.csv plus any data/questions-*.csv (the autumn 2026
+// additions live in data/questions-2.csv). Same columns, ids continue upward.
+function questionFiles() {
+  const files = [path.join(__dirname, 'questions.csv')];
+  const dataDir = path.join(__dirname, 'data');
+  if (fs.existsSync(dataDir)) {
+    fs.readdirSync(dataDir)
+      .filter((f) => /^questions-\d+\.csv$/.test(f))
+      .sort()
+      .forEach((f) => files.push(path.join(dataDir, f)));
+  }
+  return files;
+}
+
+function readCsv(file) {
   return new Promise((resolve, reject) => {
-    const results = [];
-    fs.createReadStream(path.join(__dirname, 'questions.csv'))
+    const rows = [];
+    fs.createReadStream(file)
       .pipe(csv())
-      .on('data', (row) => {
-        const shuffled = shuffleOptions(row.id, {
-          A: row.option_a,
-          B: row.option_b,
-          C: row.option_c,
-          D: row.option_d
-        }, row.correct.trim());
-        results.push({
-          id: row.id,
-          question: row.question,
-          options: shuffled.options,
-          correctAnswer: shuffled.correctLetter,
-          topic: row.topic
-        });
-      })
-      .on('end', () => {
-        questions = results;
-        console.log(`Loaded ${questions.length} questions`);
-        resolve();
-      })
+      .on('data', (row) => rows.push(row))
+      .on('end', () => resolve(rows))
       .on('error', reject);
   });
+}
+
+function loadExplanations() {
+  const dataDir = path.join(__dirname, 'data');
+  if (!fs.existsSync(dataDir)) return {};
+  const merged = {};
+  fs.readdirSync(dataDir)
+    .filter((f) => /^explanations(-\d+)?\.json$/.test(f))
+    .sort()
+    .forEach((f) => {
+      try {
+        Object.assign(merged, JSON.parse(fs.readFileSync(path.join(dataDir, f), 'utf8')));
+      } catch (error) {
+        console.error(`Could not read ${f}:`, error.message);
+      }
+    });
+  return merged;
+}
+
+async function loadQuestions() {
+  const results = [];
+  for (const file of questionFiles()) {
+    const rows = await readCsv(file);
+    for (const row of rows) {
+      const shuffled = shuffleOptions(row.id, {
+        A: row.option_a,
+        B: row.option_b,
+        C: row.option_c,
+        D: row.option_d
+      }, row.correct.trim());
+      results.push({
+        id: row.id,
+        question: row.question,
+        options: shuffled.options,
+        correctAnswer: shuffled.correctLetter,
+        topic: row.topic
+      });
+    }
+  }
+  questions = results;
+  explanations = loadExplanations();
+  console.log(`Loaded ${questions.length} questions, ${Object.keys(explanations).length} explanations`);
 }
 
 // Create tables on startup if they do not exist
@@ -351,7 +392,8 @@ app.post('/api/check-answer', (req, res) => {
     correct: isCorrect,
     correctAnswer: question.correctAnswer,
     topic: question.topic,
-    question: question.question
+    question: question.question,
+    explanation: explanations[question.id] || ''
   });
 });
 

@@ -14,3 +14,4 @@ build/
 *.swp
 .env.local
 .env.*.local
+.slides-2023/
