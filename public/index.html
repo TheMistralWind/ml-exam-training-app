@@ -99,8 +99,6 @@
         <section id="summaryContainer" class="summary hidden" aria-labelledby="summaryTitle">
             <h2 id="summaryTitle">Round 1 done</h2>
             <p class="summary-score"><span id="summaryScore">0</span> of <span id="summaryTotal">10</span> right</p>
-            <div id="summaryTopics" class="summary-topics"></div>
-            <div id="summaryMissed" class="summary-missed"></div>
             <div class="summary-actions">
                 <button id="summaryNextBtn" class="next-btn" type="button">Next round</button>
                 <button id="summaryMissedBtn" class="back-btn secondary hidden" type="button">Practise the ones you missed</button>
@@ -117,6 +115,8 @@
                 <p id="summarySignupStatus" class="form-status hidden" role="status" aria-live="polite"></p>
                 <button type="button" id="summarySignupSkip" class="skip-btn">Not now</button>
             </form>
+            <div id="summaryTopics" class="summary-topics"></div>
+            <div id="summaryMissed" class="summary-missed"></div>
             <div class="summary-share">
                 <button id="shareBtn" class="donate-btn" type="button">Share with your course chat</button>
                 <span id="shareNote" class="share-note" role="status" aria-live="polite"></span>
@@ -159,8 +159,8 @@
         <div id="signInModal" class="modal hidden">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h2>Sign in</h2>
-                    <p>Enter your email to load your saved progress</p>
+                    <h2>Your email</h2>
+                    <p>Loads your saved progress, or starts saving your progress under this email so it follows you to another device.</p>
                 </div>
                 <form id="signInForm" class="signup-form">
                     <div class="form-group">
@@ -174,7 +174,8 @@
                         >
                     </div>
                     <p id="signInStatus" class="form-status hidden" role="status" aria-live="polite"></p>
-                    <button type="submit" id="signInSubmitBtn" class="submit-btn">Load progress</button>
+                    <button type="submit" id="signInSubmitBtn" class="submit-btn">Continue</button>
+                    <button type="button" id="signInSaveBtn" class="submit-btn hidden">Save my progress under this email</button>
                     <button type="button" id="cancelSignInBtn" class="skip-btn">Cancel</button>
                 </form>
             </div>

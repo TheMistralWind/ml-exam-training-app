@@ -98,9 +98,10 @@ function scrollPageToTop() {
 
     if (urlSource) {
         sourceSlug = urlSource;
-        localStorage.setItem('source_slug', urlSource);
+        try { localStorage.setItem('source_slug', urlSource); } catch (e) { /* noop */ }
     } else {
-        const storedSource = localStorage.getItem('source_slug');
+        let storedSource = null;
+        try { storedSource = localStorage.getItem('source_slug'); } catch (e) { /* noop */ }
         if (storedSource) {
             sourceSlug = storedSource;
         }
@@ -136,6 +137,7 @@ const signInEmailInput = document.getElementById('signInEmailInput');
 const signInSubmitBtn = document.getElementById('signInSubmitBtn');
 const signInStatus = document.getElementById('signInStatus');
 const cancelSignInBtn = document.getElementById('cancelSignInBtn');
+const signInSaveBtn = document.getElementById('signInSaveBtn');
 const donateBtn = document.getElementById('donateBtn');
 const summarySignup = document.getElementById('summarySignup');
 const summaryEmail = document.getElementById('summaryEmail');
@@ -165,8 +167,17 @@ function progressSnapshot() {
     };
 }
 
+// localStorage can throw (private browsing, full storage); the quiz must go on without it.
+function storageSet(key, value) {
+    try { localStorage.setItem(key, value); } catch (e) { /* no persistence this session */ }
+}
+
+function storageRemove(key) {
+    try { localStorage.removeItem(key); } catch (e) { /* noop */ }
+}
+
 function saveToLocalStorage() {
-    localStorage.setItem('quizProgress', JSON.stringify(progressSnapshot()));
+    storageSet('quizProgress', JSON.stringify(progressSnapshot()));
 }
 
 function loadFromLocalStorage() {
@@ -179,11 +190,11 @@ function loadFromLocalStorage() {
 }
 
 function clearLocalStorage() {
-    localStorage.removeItem('quizProgress');
+    storageRemove('quizProgress');
 }
 
 function savePracticeState() {
-    localStorage.setItem('practiceState', JSON.stringify({ practice, practiceHistory }));
+    storageSet('practiceState', JSON.stringify({ practice, practiceHistory }));
 }
 
 function loadPracticeState() {
@@ -204,15 +215,15 @@ function loadPracticeState() {
 function clearPracticeState() {
     practice = null;
     practiceHistory = {};
-    localStorage.removeItem('practiceState');
+    storageRemove('practiceState');
 }
 
 function getStoredEmail() {
-    return localStorage.getItem('userEmail');
+    try { return localStorage.getItem('userEmail'); } catch (e) { return null; }
 }
 
 function setStoredEmail(email) {
-    localStorage.setItem('userEmail', email);
+    storageSet('userEmail', email);
 }
 
 // Progress management
@@ -289,19 +300,33 @@ function hideSignInModal() {
     signInModal.classList.add('hidden');
     signInEmailInput.value = '';
     setSignInStatus('');
+    signInSaveBtn.classList.add('hidden');
 }
 
 const SIGN_IN_MESSAGES = {
-    not_found: 'No saved progress found for this email.',
+    not_found: 'Nothing saved under this email yet. Save your current progress under it?',
     finished: 'This run is already finished. Cancel to start a new quiz.',
     rate_limited: 'Too many attempts. Wait a minute and try again.',
     server_error: 'Something went wrong. Try again.',
     network_error: 'Something went wrong. Check your connection and try again.'
 };
 
-function setSignInStatus(message) {
+function setSignInStatus(message, ok = false) {
     signInStatus.textContent = message;
     signInStatus.classList.toggle('hidden', !message);
+    signInStatus.classList.toggle('ok', ok);
+}
+
+// Adopt an email for the current run: save now, and keep saving after each answer.
+async function adoptEmail(email) {
+    const success = await saveProgress(email);
+    if (!success) return false;
+    userEmail = email;
+    setStoredEmail(email);
+    identifyUser(email);
+    updateSignInButton();
+    track('progress_save_success', { source: sourceSlug, where: 'sign_in' });
+    return true;
 }
 
 function showWelcomeModal(email, progress) {
@@ -654,6 +679,7 @@ async function handleAnswer(selectedOption) {
             })
         });
 
+        if (!response.ok) throw new Error(`check-answer ${response.status}`);
         const result = await response.json();
         const questionId = question.id;
         const entry = {
@@ -708,6 +734,7 @@ async function handleAnswer(selectedOption) {
         nextBtn.classList.remove('hidden');
         // After layout updates, scroll Next button into view (mobile convenience)
         setTimeout(scrollNextIntoView, 50);
+        nextBtn.focus({ preventScroll: true });
 
         if (!practice) {
             // Save progress to localStorage
@@ -783,6 +810,10 @@ function showSummary(position) {
             ids.push(q.id);
             entries.push(e);
         }
+    }
+    if (entries.length === 0) {
+        advance();
+        return;
     }
     const correct = entries.filter(e => e.correct).length;
     const missed = ids.filter((id, i) => !entries[i].correct);
@@ -895,15 +926,10 @@ summarySignup.addEventListener('submit', async (e) => {
     if (!email) return;
     const button = summarySignup.querySelector('.submit-btn');
     button.disabled = true;
-    const success = await saveProgress(email);
+    const success = await adoptEmail(email);
     button.disabled = false;
     summarySignupStatus.classList.remove('hidden');
     if (success) {
-        userEmail = email;
-        setStoredEmail(email);
-        identifyUser(email);
-        updateSignInButton();
-        track('progress_save_success', { source: sourceSlug, where: 'summary' });
         summarySignupStatus.classList.add('ok');
         summarySignupStatus.textContent = 'Saved. Sign in with this email on any device to continue.';
         summarySignup.querySelector('.summary-signup-row').classList.add('hidden');
@@ -1116,7 +1142,7 @@ signInForm.addEventListener('submit', async (e) => {
         const { progress, reason } = await fetchProgress(email);
 
         signInSubmitBtn.disabled = false;
-        signInSubmitBtn.textContent = 'Load progress';
+        signInSubmitBtn.textContent = 'Continue';
 
         if (progress && progress.currentQuestionIndex < questions.length) {
             userEmail = email;
@@ -1128,8 +1154,29 @@ signInForm.addEventListener('submit', async (e) => {
         } else {
             const failure = progress ? 'finished' : reason;
             setSignInStatus(SIGN_IN_MESSAGES[failure]);
+            // A new email is the normal case for a first-time saver, so offer
+            // to start saving under it instead of leaving the student at an error.
+            signInSaveBtn.classList.toggle('hidden', failure !== 'not_found');
             track('sign_in_failed', { reason: failure });
         }
+    }
+});
+
+signInSaveBtn.addEventListener('click', async () => {
+    const email = signInEmailInput.value.trim();
+    if (!email) return;
+    signInSaveBtn.disabled = true;
+    signInSaveBtn.textContent = 'Saving\u2026';
+    const ok = await adoptEmail(email);
+    signInSaveBtn.disabled = false;
+    signInSaveBtn.textContent = 'Save my progress under this email';
+    if (ok) {
+        setSignInStatus('Saved. Enter this email on any device to continue from here.', true);
+        signInSaveBtn.classList.add('hidden');
+        signInSubmitBtn.classList.add('hidden');
+        setTimeout(() => { hideSignInModal(); signInSubmitBtn.classList.remove('hidden'); }, 1800);
+    } else {
+        setSignInStatus('Could not save. Check your connection and try again.');
     }
 });
 

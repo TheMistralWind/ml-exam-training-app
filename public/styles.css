@@ -911,6 +911,24 @@ h1::before {
     margin-top: 24px;
 }
 
+.summary .summary-actions {
+    margin: 0 0 28px;
+}
+
+.summary .summary-signup {
+    margin: 0 0 28px;
+}
+
+.form-status.ok {
+    color: var(--accent);
+    background: var(--accent-soft);
+    border-color: var(--accent-border);
+}
+
+.signup-form .submit-btn + .submit-btn {
+    margin-top: 10px;
+}
+
 .summary-actions .next-btn,
 .results-actions .next-btn {
     flex: 1 1 100%;
