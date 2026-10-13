@@ -4,15 +4,13 @@ A web-based quiz application for machine learning exam preparation with 120 mult
 
 ## Features
 
-- 120 ML exam questions organized by topic
-- **Random question order** - Questions shuffled for each session
-- **Email signup after 5 questions** - Save progress and continue later
-- **Progress tracking** - Resume from where you left off
-- Instant feedback on answers
-- Google search suggestions for incorrect answers
-- Topic-based performance breakdown
-- Final score with performance evaluation
-- Mobile-responsive design
+- Question bank: `questions.csv` (120, reviewed July 2026 against the 2025 lecture slides) plus `data/questions-2.csv` (60 added October 2026 from the 2023 slides of lectures 3 to 6, aimed at the topics students miss most). Same columns; ids continue upward. Any `data/questions-N.csv` is loaded.
+- Rounds of ten with a summary after each: score, topics, and every missed question with the right option and why.
+- An explanation under every answer, right or wrong: `data/explanations.json` and `data/explanations-2.json`, one or two sentences per question id, sent only after an answer is checked.
+- Practice decks beside the main run, which never change its score: the questions missed so far (a question stays until it is answered right), or one topic, from a picker that lists topics weakest first.
+- Progress is kept in the browser without an account and restores on the next visit. Adding an email on a round summary saves it to the server so it follows the student to another device (the "Sign in" button loads it).
+- Random question order per student, deterministic option order per question (see Tech Stack).
+- Share button on the round summary, MobilePay donation link, PostHog events for every step.
 
 ## Tech Stack
 
@@ -97,3 +95,7 @@ npm start
 ## License
 
 MIT
+
+## Staging
+
+Railway environment `staging` in the "ML exam app" project (created 2026-10-13), with its own empty Postgres. It serves https://ml-exam-training-app-staging.up.railway.app and is deployed from whatever commit is sent to it; production stays on `main`. The API token in Bitwarden cannot change the service's source branch (`serviceInstanceUpdate` fails) but can deploy a commit: `serviceInstanceDeployV2(serviceId, environmentId, commitSha)`. Nothing in staging is linked from the website.
