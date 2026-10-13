@@ -661,6 +661,22 @@ h1::before {
     margin-bottom: 8px;
 }
 
+.signup-form .submit-btn:disabled {
+    filter: none;
+    opacity: 0.6;
+}
+
+.form-status {
+    font-size: 0.85rem;
+    line-height: 1.5;
+    color: var(--err);
+    background: var(--err-soft);
+    border: 1px solid var(--err-border);
+    border-radius: var(--radius);
+    padding: 10px 12px;
+    margin-bottom: 12px;
+}
+
 .skip-btn {
     width: 100%;
     font-family: var(--mono);
