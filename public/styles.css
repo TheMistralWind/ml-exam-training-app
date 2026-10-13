@@ -124,6 +124,12 @@ h1 {
     gap: 10px;
 }
 
+h1 .year {
+    font-weight: 400;
+    color: var(--text-secondary);
+    letter-spacing: 0.04em;
+}
+
 /* Green status square before the wordmark */
 h1::before {
     content: '';
