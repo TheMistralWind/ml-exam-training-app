@@ -1034,6 +1034,23 @@ h1::before {
     color: var(--accent);
 }
 
+/* Exam mode: the chosen option is marked, right or wrong stays hidden */
+
+.option-btn.selected,
+.option-btn.selected:disabled {
+    border-color: var(--accent);
+    background: var(--accent-soft);
+    opacity: 1;
+}
+
+.option-btn.selected .option-label {
+    color: var(--accent);
+}
+
+.option-btn.selected .option-text {
+    color: var(--text-bright);
+}
+
 /* ---------- Practice picker ---------- */
 
 .picker {

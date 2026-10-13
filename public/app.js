@@ -10,6 +10,8 @@
 // A round summary appears after every ten answers and when a deck ends.
 
 const ROUND_SIZE = 10;
+const EXAM_SIZE = 20;
+let examClock = null;
 
 let questions = [];
 let qById = new Map();
@@ -205,7 +207,8 @@ function loadPracticeState() {
         practiceHistory = parsed.practiceHistory || {};
         const p = parsed.practice;
         if (p && Array.isArray(p.deck) && p.deck.every(id => qById.has(id)) && p.index < p.deck.length) {
-            practice = { mode: p.mode, topic: p.topic || null, deck: p.deck, index: p.index, answers: p.answers || {} };
+            practice = { mode: p.mode, topic: p.topic || null, deck: p.deck, index: p.index, answers: p.answers || {}, startedAt: p.startedAt || Date.now() };
+            if (practice.mode === 'exam') startExamClock();
         }
     } catch (e) {
         practiceHistory = {};
@@ -413,7 +416,27 @@ function entryAt(position) {
 }
 
 function isRoundEnd(position) {
+    if (practice && practice.mode === 'exam') return position === currentDeckLength() - 1;
     return (position + 1) % ROUND_SIZE === 0 || position === currentDeckLength() - 1;
+}
+
+function isExam() {
+    return !!(practice && practice.mode === 'exam');
+}
+
+function elapsedLabel() {
+    const s = Math.max(0, Math.floor((Date.now() - (practice.startedAt || Date.now())) / 1000));
+    return `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`;
+}
+
+function startExamClock() {
+    stopExamClock();
+    examClock = setInterval(() => { if (isExam()) updateHeader(); else stopExamClock(); }, 1000);
+}
+
+function stopExamClock() {
+    if (examClock) clearInterval(examClock);
+    examClock = null;
 }
 
 function roundNumber(position) {
@@ -452,6 +475,7 @@ function topicSummary() {
 function deckLabel() {
     if (!practice) return 'All questions';
     if (practice.mode === 'missed') return 'Missed questions';
+    if (practice.mode === 'exam') return `Exam: ${practice.deck.length} questions`;
     return `Practice: ${practice.topic}`;
 }
 
@@ -465,7 +489,7 @@ function updateHeader() {
         const done = Object.keys(practice.answers).length;
         const right = Object.values(practice.answers).filter(a => a.correct).length;
         questionCounter.textContent = `Question ${Math.min(position + 1, length)} of ${length}`;
-        scoreCounter.textContent = `This deck: ${right}/${done}`;
+        scoreCounter.textContent = isExam() ? `Time: ${elapsedLabel()}` : `This deck: ${right}/${done}`;
         progressBar.style.width = `${(position / Math.max(length, 1)) * 100}%`;
     } else {
         questionCounter.textContent = `Round ${roundNumber(position)} · ${(position % ROUND_SIZE) + 1} of ${ROUND_SIZE}`;
@@ -567,6 +591,10 @@ function renderFeedback(entry) {
 }
 
 function setNextLabel(position) {
+    if (isExam()) {
+        nextBtn.textContent = isRoundEnd(position) ? 'Finish exam' : 'Next question';
+        return;
+    }
     nextBtn.textContent = isRoundEnd(position) ? 'Round summary' : 'Next question';
 }
 
@@ -609,7 +637,7 @@ function displayQuestion() {
 
         optionTextEl.textContent = question.options[optionKey];
         btn.disabled = false;
-        btn.classList.remove('correct', 'incorrect');
+        btn.classList.remove('correct', 'incorrect', 'selected');
 
         // Remove old event listeners by cloning
         const newBtn = btn.cloneNode(true);
@@ -624,6 +652,10 @@ function displayQuestion() {
         const optionButtonsNow = optionsContainer.querySelectorAll('.option-btn');
         optionButtonsNow.forEach(btn => {
             btn.disabled = true;
+            if (isExam()) {
+                if (btn.dataset.option === existing.selectedOption) btn.classList.add('selected');
+                return;
+            }
             if (btn.dataset.option === existing.selectedOption) {
                 btn.classList.add(existing.correct ? 'correct' : 'incorrect');
             }
@@ -631,7 +663,7 @@ function displayQuestion() {
                 btn.classList.add('correct');
             }
         });
-        renderFeedback(existing);
+        if (!isExam()) renderFeedback(existing);
         setNextLabel(position);
         nextBtn.classList.remove('hidden');
         if (lastNav === 'back') scrollQuestionToTop();
@@ -718,6 +750,17 @@ async function handleAnswer(selectedOption) {
             track(entry.correct ? 'answer_correct' : 'answer_incorrect', { topic: result.topic, mode: 'main' });
         }
 
+        if (isExam()) {
+            optionButtons.forEach(btn => {
+                if (btn.dataset.option === selectedOption) btn.classList.add('selected');
+            });
+            updateHeader();
+            setNextLabel(position);
+            nextBtn.classList.remove('hidden');
+            nextBtn.focus({ preventScroll: true });
+            return;
+        }
+
         // Highlight the chosen option and, when wrong, the right one
         optionButtons.forEach(btn => {
             if (btn.dataset.option === selectedOption) {
@@ -800,7 +843,8 @@ if (backBtn) {
 // ---------------------------------------------------------------- round summary
 
 function showSummary(position) {
-    const start = position - (position % ROUND_SIZE);
+    // An exam is summarised whole; everything else per round of ten
+    const start = isExam() ? 0 : position - (position % ROUND_SIZE);
     const ids = [];
     const entries = [];
     for (let i = start; i <= position; i++) {
@@ -821,8 +865,10 @@ function showSummary(position) {
 
     let title;
     if (!practice) title = position === questions.length - 1 ? 'Last round done' : `Round ${roundNumber(position)} done`;
+    else if (practice.mode === 'exam') title = `Exam done in ${elapsedLabel()}`;
     else if (deckDone) title = practice.mode === 'missed' ? 'Missed questions: deck done' : `${practice.topic}: deck done`;
     else title = practice.mode === 'missed' ? 'Missed questions: round done' : `${practice.topic}: round done`;
+    if (practice && practice.mode === 'exam') stopExamClock();
     document.getElementById('summaryTitle').textContent = title;
     document.getElementById('summaryScore').textContent = String(correct);
     document.getElementById('summaryTotal').textContent = String(entries.length);
@@ -967,8 +1013,9 @@ document.getElementById('shareBtn').addEventListener('click', async () => {
 
 function startPractice(mode, topic, ids) {
     if (!ids.length) return;
-    practice = { mode, topic: topic || null, deck: shuffleArray(ids), index: 0, answers: {} };
+    practice = { mode, topic: topic || null, deck: shuffleArray(ids), index: 0, answers: {}, startedAt: Date.now() };
     savePracticeState();
+    if (mode === 'exam') startExamClock();
     track('practice_started', { mode, topic: topic || null, size: ids.length });
     lastNav = 'next';
     displayQuestion();
@@ -976,6 +1023,7 @@ function startPractice(mode, topic, ids) {
 }
 
 function leavePractice() {
+    stopExamClock();
     practice = null;
     savePracticeState();
     // A deck is usually started from a round summary, so the main run's
@@ -1001,6 +1049,10 @@ function openPicker() {
         : `${missed.length} waiting for a right answer`;
     missedBtn.disabled = missed.length === 0;
     missedBtn.onclick = () => startPractice('missed', null, missed);
+
+    const examBtn = document.getElementById('pickExamBtn');
+    examBtn.querySelector('small').textContent = `${Math.min(EXAM_SIZE, questions.length)} random questions, no feedback until the end, like the MyCourses quiz`;
+    examBtn.onclick = () => startPractice('exam', null, shuffleArray(questions.map(q => q.id)).slice(0, EXAM_SIZE));
 
     const list = document.getElementById('pickerTopics');
     list.textContent = '';

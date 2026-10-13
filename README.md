@@ -7,6 +7,7 @@ A web-based quiz application for machine learning exam preparation with 120 mult
 - Question bank: `questions.csv` (120, reviewed July 2026 against the 2025 lecture slides) plus `data/questions-2.csv` (60 added October 2026 from the 2023 slides of lectures 3 to 6, aimed at the topics students miss most). Same columns; ids continue upward. Any `data/questions-N.csv` is loaded.
 - Rounds of ten with a summary after each: score, topics, and every missed question with the right option and why.
 - An explanation under every answer, right or wrong: `data/explanations.json` and `data/explanations-2.json`, one or two sentences per question id, sent only after an answer is checked.
+- Exam mode from the picker: 20 random questions, the chosen option is marked but nothing is judged until the end, a running clock, then one summary with every missed question explained. The 2026 exam (12 to 30 Oct, EXAM studios, 2 hours) is a MyCourses multiple-choice quiz plus Jupyter coding questions, so this mirrors the quiz half.
 - Practice decks beside the main run, which never change its score: the questions missed so far (a question stays until it is answered right), or one topic, from a picker that lists topics weakest first.
 - Progress is kept in the browser without an account and restores on the next visit. Adding an email on a round summary saves it to the server so it follows the student to another device (the "Sign in" button loads it).
 - Random question order per student, deterministic option order per question (see Tech Stack).
