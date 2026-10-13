@@ -13,7 +13,7 @@
     --text: #c9d4cc;
     --text-bright: #e8f0ea;
     --text-secondary: #9faea3;
-    --text-muted: #6d7a70;
+    --text-muted: #76827a;           /* 4.8:1 on the page, 4.7:1 on surfaces */
 
     --accent: #7af0a4;              /* phosphor green */
     --accent-border: rgba(122, 240, 164, 0.30);
@@ -122,6 +122,12 @@ h1 {
     display: flex;
     align-items: center;
     gap: 10px;
+}
+
+h1 .year {
+    font-weight: 400;
+    color: var(--text-secondary);
+    letter-spacing: 0.04em;
 }
 
 /* Green status square before the wordmark */
@@ -772,6 +778,380 @@ h1::before {
     color: var(--accent);
 }
 
+/* ---------- Mode bar ---------- */
+
+.mode-bar {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 12px;
+    margin-top: 10px;
+    font-family: var(--mono);
+    font-size: 0.75rem;
+    letter-spacing: 0.04em;
+}
+
+.mode-label {
+    color: var(--text-secondary);
+    text-transform: uppercase;
+}
+
+.mode-change {
+    color: var(--accent);
+    text-decoration: underline;
+    text-underline-offset: 3px;
+    text-decoration-color: var(--accent-border);
+    padding: 2px 0;
+    transition: text-decoration-color 0.15s ease;
+}
+
+.mode-change:hover {
+    text-decoration-color: var(--accent);
+}
+
+/* ---------- Explanation under the verdict ---------- */
+
+.feedback .explanation,
+.feedback.correct .feedback-content .explanation,
+.feedback.incorrect .feedback-content .explanation {
+    font-family: var(--sans);
+    font-size: 0.92rem;
+    font-weight: 400;
+    line-height: 1.55;
+    color: var(--text);
+    margin-top: 8px;
+    max-width: 62ch;
+}
+
+/* ---------- Round summary ---------- */
+
+.summary {
+    padding: 8px 0 0;
+}
+
+.summary h2 {
+    font-family: var(--mono);
+    font-size: 0.85rem;
+    font-weight: 500;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--accent);
+}
+
+.summary h2::before {
+    content: '>> ';
+}
+
+.summary-score {
+    font-family: var(--mono);
+    font-size: 2.4rem;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    color: var(--text-bright);
+    margin: 14px 0 20px;
+    font-variant-numeric: tabular-nums;
+}
+
+.summary-score span:first-child {
+    text-shadow: 0 0 18px rgba(122, 240, 164, 0.30);
+}
+
+.summary-topics {
+    display: grid;
+    gap: 6px;
+    margin-bottom: 24px;
+}
+
+.summary-topics .topic-item {
+    margin-bottom: 0;
+    padding: 10px 14px;
+}
+
+.summary-missed h3,
+.picker-heading {
+    font-family: var(--mono);
+    font-size: 0.72rem;
+    font-weight: 500;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    margin-bottom: 12px;
+}
+
+.missed-item {
+    padding: 14px 0;
+    border-top: 1px solid var(--accent-line);
+}
+
+.missed-item:last-child {
+    border-bottom: 1px solid var(--accent-line);
+}
+
+.missed-item .missed-q {
+    font-size: 0.95rem;
+    font-weight: 500;
+    color: var(--text-bright);
+    text-wrap: pretty;
+}
+
+.missed-item .missed-a {
+    font-family: var(--mono);
+    font-size: 0.8rem;
+    color: var(--accent);
+    margin-top: 6px;
+}
+
+.missed-item .missed-why {
+    font-size: 0.88rem;
+    line-height: 1.5;
+    color: var(--text-secondary);
+    margin-top: 6px;
+    max-width: 62ch;
+}
+
+.summary-actions,
+.results-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-top: 24px;
+}
+
+.summary .summary-actions {
+    margin: 0 0 28px;
+}
+
+.summary .summary-signup {
+    margin: 0 0 28px;
+}
+
+.form-status.ok {
+    color: var(--accent);
+    background: var(--accent-soft);
+    border-color: var(--accent-border);
+}
+
+.signup-form .submit-btn + .submit-btn {
+    margin-top: 10px;
+}
+
+.summary-actions .next-btn,
+.results-actions .next-btn {
+    flex: 1 1 100%;
+}
+
+.summary-actions .back-btn,
+.results-actions .back-btn {
+    flex: 1 1 auto;
+}
+
+.back-btn.secondary::before {
+    content: none;
+}
+
+.results-actions {
+    justify-content: center;
+}
+
+/* Sign-up card inside the summary */
+
+.summary-signup {
+    margin-top: 32px;
+    padding: 20px;
+    background: var(--accent-faint);
+    border: 1px solid var(--accent-dim);
+    border-radius: var(--radius-lg);
+}
+
+.summary-signup h3 {
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--text-bright);
+    margin-bottom: 4px;
+}
+
+.summary-signup p {
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+    margin-bottom: 14px;
+    max-width: 52ch;
+}
+
+.summary-signup-row {
+    display: flex;
+    gap: 10px;
+}
+
+.summary-signup-row input {
+    flex: 1;
+    min-width: 0;
+    font-family: var(--mono);
+    font-size: 0.9rem;
+    padding: 12px 14px;
+    background: var(--bg);
+    border: 1px solid var(--accent-border);
+    border-radius: var(--radius);
+    color: var(--text-bright);
+    caret-color: var(--accent);
+}
+
+.summary-signup-row input::placeholder {
+    color: var(--text-muted);
+}
+
+.summary-signup-row input:focus {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: var(--glow-sm);
+}
+
+.summary-signup-row .submit-btn {
+    padding: 12px 20px;
+}
+
+.summary-signup .skip-btn {
+    width: auto;
+    margin-top: 10px;
+    padding: 6px 0;
+}
+
+.summary-signup .form-status {
+    margin-top: 12px;
+    margin-bottom: 0;
+}
+
+.summary-signup .form-status.ok {
+    color: var(--accent);
+    background: var(--accent-soft);
+    border-color: var(--accent-border);
+}
+
+.summary-share {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-top: 28px;
+}
+
+.share-note {
+    font-family: var(--mono);
+    font-size: 0.75rem;
+    color: var(--accent);
+}
+
+/* Exam mode: the chosen option is marked, right or wrong stays hidden */
+
+.option-btn.selected,
+.option-btn.selected:disabled {
+    border-color: var(--accent);
+    background: var(--accent-soft);
+    opacity: 1;
+}
+
+.option-btn.selected .option-label {
+    color: var(--accent);
+}
+
+.option-btn.selected .option-text {
+    color: var(--text-bright);
+}
+
+/* ---------- Practice picker ---------- */
+
+.picker {
+    padding: 8px 0 0;
+}
+
+.picker h2 {
+    font-family: var(--mono);
+    font-size: 0.85rem;
+    font-weight: 500;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--accent);
+}
+
+.picker h2::before {
+    content: '>> ';
+}
+
+.picker-intro {
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+    margin: 10px 0 20px;
+    max-width: 52ch;
+}
+
+.picker .option-btn-large {
+    margin-bottom: 24px;
+}
+
+.picker .option-btn-large:disabled {
+    opacity: 0.5;
+    cursor: default;
+}
+
+.picker-topics {
+    display: grid;
+    gap: 8px;
+    margin-bottom: 24px;
+}
+
+.picker-topic {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 16px;
+    width: 100%;
+    text-align: left;
+    padding: 13px 16px;
+    background: var(--accent-faint);
+    border: 1px solid var(--accent-dim);
+    border-radius: var(--radius);
+    color: var(--text);
+    font-size: 0.9rem;
+    transition: border-color 0.15s ease, background-color 0.15s ease;
+}
+
+.picker-topic:hover {
+    border-color: var(--accent-border);
+    background: var(--accent-soft);
+}
+
+.picker-topic .picker-stat {
+    flex-shrink: 0;
+    font-family: var(--mono);
+    font-size: 0.78rem;
+    color: var(--text-muted);
+    font-variant-numeric: tabular-nums;
+}
+
+.picker-topic .picker-stat.weak {
+    color: var(--err);
+}
+
+.visually-hidden {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+}
+
+/* Selection, focus and caret belong to the theme too */
+
+::selection {
+    background: rgba(122, 240, 164, 0.25);
+    color: var(--text-bright);
+}
+
+:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+}
+
 /* ---------- Mobile ---------- */
 
 @media (max-width: 480px) {
@@ -809,6 +1189,33 @@ h1::before {
 
     .final-score p {
         font-size: 3.4rem;
+    }
+
+    .summary-score {
+        font-size: 2rem;
+    }
+
+    .summary-signup {
+        padding: 16px;
+    }
+
+    .summary-signup-row {
+        flex-direction: column;
+    }
+
+    .summary-actions .back-btn,
+    .results-actions .back-btn {
+        flex: 1 1 100%;
+        min-height: 48px;
+    }
+
+    .mode-bar {
+        flex-wrap: wrap;
+    }
+
+    /* The fixed watermark sits over the feedback text on a phone */
+    .wave-mark {
+        display: none;
     }
 
     .modal {

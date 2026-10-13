@@ -3,12 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ML Exam Training</title>
+    <title>ML Exam Training 2026</title>
+    <meta name="description" content="Practice questions for the Aalto CS-C3240 Machine Learning exam: rounds of ten, explanations after every answer, and drills on the topics you miss.">
+    <meta name="theme-color" content="#0a0d0b">
     <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="styles.css">
     <!-- PostHog product analytics (cookieless, EU). Shared "Robin Apps" project, split by the registered app super-property. -->
     <script>
-        !function(t,e){var o,n,p,r;e.__SV||(window.posthog=e,e._i=[],e.init=function(i,s,a){function g(t,e){var o=e.split(".");2==o.length&&(t=t[o[0]],e=o[1]),t[e]=function(){t.push([e].concat(Array.prototype.slice.call(arguments,0)))}}(p=t.createElement("script")).type="text/javascript",p.crossOrigin="anonymous",p.async=!0,p.src=s.api_host.replace(".i.posthog.com","-assets.i.posthog.com")+"/static/array.js",(r=t.getElementsByTagName("script")[0]).parentNode.insertBefore(p,r);var u=e;for(void 0!==a?u=e[a]=[]:a="posthog",u.people=u.people||[],u.toString=function(t){var e="posthog";return"posthog"!==a&&(e+="."+a),t||(e+=" (stub)"),e},u.people.toString=function(){return u.toString(1)+".people (stub)"},o="init capture register register_once register_for_session unregister unregister_for_session getFeatureFlag getFeatureFlagPayload isFeatureEnabled reloadFeatureFlags updateEarlyAccessFeatureEnrollment getEarlyAccessFeatures on onFeatureFlags onSessionId getSurveys getActiveMatchingSurveys renderSurvey canRenderSurvey getNextSurveyStep identify setPersonProperties group resetGroups setPersonPropertiesForFlags resetPersonPropertiesForFlags setGroupPropertiesForFlags resetGroupPropertiesForFlags reset get_distinct_id getGroups get_session_id get_session_replay_url alias set_config startSessionRecording stopSessionRecording sessionRecordingStarted captureException loadToolbar get_property getSessionProperty createPersonProfile opt_in_capturing opt_out_capturing has_opted_in_capturing has_opted_out_capturing clear_opt_in_out_capturing debug getPageViewId captureTraceFeedback captureTraceMetric".split(" "),n=0;n<o.length;n++)g(u,o[n]);e._i.push([i,s,a])},e.__SV=1)}(document,window.posthog||[]);
+        !function(t,e){var o,n,p,r;e.__SV||(window.posthog=e,e._i=[],e.init=function(i,s,a){function g(t,e){var o=e.split(".");2==o.length&&(t=t[o[0]],e=o[1]),t[e]=function(){t.push([e].concat(Array.prototype.slice.call(arguments,0)))}}(p=t.createElement("script")).type="text/javascript",p.crossOrigin="anonymous",p.async=!0,p.src=s.api_host.replace(".i.posthog.com","-assets.i.posthog.com")+"/static/array.js",(r=t.getElementsByTagName("script")[0]).parentNode.insertBefore(p,r);var u=e;for(void 0!==a?u=e[a]=[]:a="posthog",u.people=u.people||[],u.toString=function(t){var e="posthog";return"posthog"!==a&&(e+="."+a),t||(e+=" (stub)"),e},u.people.toString=function(){return u.toString(1)+".people (stub)"},o="init capture register register_once register_for_session unregister unregister_for_session getFeatureFlag getFeatureFlagPayload isFeatureEnabled reloadFeatureFlags updateEarlyAccessFeatureEnrollment getEarlyAccessFeatures on onFeatureFlags onSessionId getSurveys getActiveMatchingSurveys renderSurvey canRenderSurvey getNextSurveyStep identify setPersonProperties group resetGroups setPersonPropertiesForFlags resetPersonPropertiesForFlags setGroupPropertiesForFlags resetGroupPropertiesForFlags alias set_config startSessionRecording stopSessionRecording sessionRecordingStarted captureException loadToolbar get_property getSessionProperty createPersonProfile opt_in_capturing opt_out_capturing has_opted_in_capturing has_opted_out_capturing clear_opt_in_out_capturing debug getPageViewId captureTraceFeedback captureTraceMetric".split(" "),n=0;n<o.length;n++)g(u,o[n]);e._i.push([i,s,a])},e.__SV=1)}(document,window.posthog||[]);
         posthog.init('phc_AkyXL2GftuPsbivi6buW6BUDUoXCsQKjCZN9YXjk37Dp', {
             api_host: 'https://eu.i.posthog.com',
             ui_host: 'https://eu.posthog.com',
@@ -25,15 +27,19 @@
     <div class="container">
         <header>
             <div class="header-top">
-                <h1>ML_EXAM.TRAINER</h1>
+                <h1>ML_EXAM.TRAINER <span class="year">2026</span></h1>
                 <button id="signInBtn" class="sign-in-btn hidden">Sign in</button>
             </div>
             <div class="progress-bar">
                 <div class="progress-fill" id="progressBar"></div>
             </div>
             <div class="stats">
-                <span id="questionCounter">Question 1 of 120</span>
+                <span id="questionCounter">Round 1</span>
                 <span id="scoreCounter">Score: 0/0</span>
+            </div>
+            <div class="mode-bar">
+                <span id="modeLabel" class="mode-label">All questions</span>
+                <button id="modeChangeBtn" class="mode-change" type="button">Practice a topic</button>
             </div>
         </header>
 
@@ -43,7 +49,7 @@
                 <h2 class="question" id="questionText">Loading questions...</h2>
 
                 <div class="search-inline">
-                    <a id="searchLinkInline" href="#" target="_blank" class="search-btn">Search this on Google</a>
+                    <a id="searchLinkInline" href="#" target="_blank" rel="noopener" class="search-btn">Search this on Google</a>
                 </div>
 
                 <div class="options" id="optionsContainer">
@@ -65,12 +71,12 @@
                     </button>
                 </div>
 
-                <div id="feedback" class="feedback hidden">
+                <div id="feedback" class="feedback hidden" role="status" aria-live="polite">
                     <div class="feedback-content">
                         <p id="feedbackText"></p>
+                        <p id="explanationText" class="explanation hidden"></p>
                         <div id="searchSuggestion" class="search-suggestion hidden">
-                            <p>Need help understanding this? Search for:</p>
-                            <a id="searchLink" href="#" target="_blank" class="search-btn">Search on Google</a>
+                            <a id="searchLink" href="#" target="_blank" rel="noopener" class="search-btn">Search this on Google</a>
                         </div>
                     </div>
                 </div>
@@ -89,40 +95,69 @@
             </div>
         </main>
 
+        <!-- Round summary: after every ten answers, or when a practice deck ends -->
+        <section id="summaryContainer" class="summary hidden" aria-labelledby="summaryTitle">
+            <h2 id="summaryTitle">Round 1 done</h2>
+            <p class="summary-score"><span id="summaryScore">0</span> of <span id="summaryTotal">10</span> right</p>
+            <div class="summary-actions">
+                <button id="summaryNextBtn" class="next-btn" type="button">Next round</button>
+                <button id="summaryMissedBtn" class="back-btn secondary hidden" type="button">Practise the ones you missed</button>
+                <button id="summaryTopicBtn" class="back-btn secondary" type="button">Pick a topic</button>
+            </div>
+            <form id="summarySignup" class="summary-signup hidden">
+                <h3>Save your progress</h3>
+                <p>Your progress already stays in this browser. Add your email to continue on another device.</p>
+                <div class="summary-signup-row">
+                    <label for="summaryEmail" class="visually-hidden">Email address</label>
+                    <input type="email" id="summaryEmail" placeholder="your.email@example.com" autocomplete="email" required>
+                    <button type="submit" class="submit-btn">Save</button>
+                </div>
+                <p id="summarySignupStatus" class="form-status hidden" role="status" aria-live="polite"></p>
+                <button type="button" id="summarySignupSkip" class="skip-btn">Not now</button>
+            </form>
+            <div id="summaryTopics" class="summary-topics"></div>
+            <div id="summaryMissed" class="summary-missed"></div>
+            <div class="summary-share">
+                <button id="shareBtn" class="donate-btn" type="button">Share with your course chat</button>
+                <span id="shareNote" class="share-note" role="status" aria-live="polite"></span>
+            </div>
+        </section>
+
+        <!-- Practice picker: missed questions or one topic -->
+        <section id="pickerContainer" class="picker hidden" aria-labelledby="pickerTitle">
+            <h2 id="pickerTitle">Practice</h2>
+            <p class="picker-intro">Practice rounds do not change your main score. Questions come back until you get them right.</p>
+            <button id="pickMissedBtn" class="option-btn-large primary" type="button">
+                <div>
+                    <strong>Questions you missed</strong>
+                    <small id="pickMissedCount">Nothing missed yet</small>
+                </div>
+            </button>
+            <button id="pickExamBtn" class="option-btn-large" type="button">
+                <div>
+                    <strong>Exam mode</strong>
+                    <small>20 random questions, no feedback until the end, like the MyCourses quiz</small>
+                </div>
+            </button>
+            <h3 class="picker-heading">By topic</h3>
+            <div id="pickerTopics" class="picker-topics"></div>
+            <button id="pickerBackBtn" class="back-btn" type="button">Back</button>
+        </section>
+
         <div id="resultsContainer" class="results-container hidden">
             <div class="results-card">
-                <h2>Session complete</h2>
+                <h2>All questions done</h2>
                 <div class="final-score">
                     <h3 id="finalScore">Your Score: 0/120</h3>
                     <p id="percentage">0%</p>
                 </div>
                 <div class="performance-message" id="performanceMessage"></div>
                 <div class="topic-breakdown" id="topicBreakdown"></div>
-                <button id="restartBtn" class="restart-btn">Start over</button>
-            </div>
-        </div>
-
-        <!-- Email Signup Modal -->
-        <div id="signupModal" class="modal hidden">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h2>Save your progress</h2>
-                    <p>5 questions in. Drop your email and pick up exactly where you left off, on any device.</p>
+                <div class="results-actions">
+                    <button id="resultsMissedBtn" class="next-btn hidden" type="button">Practise what you missed</button>
+                    <button id="resultsTopicBtn" class="back-btn secondary" type="button">Pick a topic</button>
+                    <button id="restartBtn" class="back-btn secondary" type="button">Start over</button>
                 </div>
-                <form id="signupForm" class="signup-form">
-                    <div class="form-group">
-                        <label for="emailInput">Email Address</label>
-                        <input
-                            type="email"
-                            id="emailInput"
-                            placeholder="your.email@example.com"
-                            required
-                        >
-                    </div>
-                    <button type="submit" class="submit-btn">Save progress and continue</button>
-                    <button type="button" id="skipSignupBtn" class="skip-btn">Continue without saving</button>
-                    <p class="privacy-note">We'll use your email to save your progress.</p>
-                </form>
             </div>
         </div>
 
@@ -130,8 +165,8 @@
         <div id="signInModal" class="modal hidden">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h2>Sign in</h2>
-                    <p>Enter your email to load your saved progress</p>
+                    <h2>Your email</h2>
+                    <p>Loads your saved progress, or starts saving your progress under this email so it follows you to another device.</p>
                 </div>
                 <form id="signInForm" class="signup-form">
                     <div class="form-group">
@@ -140,11 +175,13 @@
                             type="email"
                             id="signInEmailInput"
                             placeholder="your.email@example.com"
+                            autocomplete="email"
                             required
                         >
                     </div>
                     <p id="signInStatus" class="form-status hidden" role="status" aria-live="polite"></p>
-                    <button type="submit" id="signInSubmitBtn" class="submit-btn">Load progress</button>
+                    <button type="submit" id="signInSubmitBtn" class="submit-btn">Continue</button>
+                    <button type="button" id="signInSaveBtn" class="submit-btn hidden">Save my progress under this email</button>
                     <button type="button" id="cancelSignInBtn" class="skip-btn">Cancel</button>
                 </form>
             </div>
