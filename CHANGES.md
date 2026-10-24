@@ -3,6 +3,7 @@
 - Show Google search link for both correct and incorrect answers
 - Sanitize duplicate-correct options at CSV load on server
 - Show sign-in failures inline with a loading state, and track `sign_in_failed`
+- Rename the quiz "Back" button to "Previous question" and add a "Menu" button next to it that opens the practice picker; `picker_opened` now has a `from` property
 - Agent: auto
 
 # Database Structure Upgrade
