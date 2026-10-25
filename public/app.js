@@ -964,7 +964,7 @@ document.getElementById('summaryNextBtn').addEventListener('click', () => {
     advance();
 });
 
-document.getElementById('summaryTopicBtn').addEventListener('click', () => openPicker());
+document.getElementById('summaryTopicBtn').addEventListener('click', () => openPicker('summary'));
 
 summarySignup.addEventListener('submit', async (e) => {
     e.preventDefault();
@@ -1038,7 +1038,7 @@ function leavePractice() {
     scrollPageToTop();
 }
 
-function openPicker() {
+function openPicker(from) {
     screenBeforePicker = activeScreen();
     if (screenBeforePicker === 'picker') screenBeforePicker = 'quiz';
 
@@ -1086,7 +1086,7 @@ function openPicker() {
     back.textContent = practice ? 'Back to all questions' : 'Back';
     showScreen('picker');
     scrollPageToTop();
-    track('picker_opened', { missed: missed.length });
+    track('picker_opened', { missed: missed.length, from });
 }
 
 document.getElementById('pickerBackBtn').addEventListener('click', () => {
@@ -1097,7 +1097,8 @@ document.getElementById('pickerBackBtn').addEventListener('click', () => {
     showScreen(screenBeforePicker);
 });
 
-modeChangeBtn.addEventListener('click', () => openPicker());
+modeChangeBtn.addEventListener('click', () => openPicker('header'));
+document.getElementById('quizMenuBtn').addEventListener('click', () => openPicker('quiz'));
 
 // ---------------------------------------------------------------- final results
 
@@ -1150,7 +1151,7 @@ function showResults() {
     scrollPageToTop();
 }
 
-document.getElementById('resultsTopicBtn').addEventListener('click', () => openPicker());
+document.getElementById('resultsTopicBtn').addEventListener('click', () => openPicker('results'));
 
 // Restart quiz
 document.getElementById('restartBtn').addEventListener('click', async () => {

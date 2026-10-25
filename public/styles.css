@@ -1175,6 +1175,16 @@ h1::before {
 
     .nav-btns {
         margin-top: 20px;
+        flex-wrap: wrap;
+    }
+
+    .nav-btns .next-btn {
+        flex: 1 1 100%;
+        order: -1;
+    }
+
+    .nav-btns .back-btn {
+        flex: 1 1 auto;
     }
 
     .next-btn {
