@@ -262,7 +262,7 @@ h1::before {
     box-shadow: var(--glow-sm);
 }
 
-.option-btn:disabled:not(.correct):not(.incorrect) {
+.option-btn:disabled:not(.correct):not(.incorrect):not(.selected) {
     opacity: 0.45;
 }
 
@@ -1040,17 +1040,20 @@ h1::before {
     color: var(--accent);
 }
 
-/* Exam mode: the chosen option is marked, right or wrong stays hidden */
+/* Exam mode: the chosen option is marked, right or wrong stays hidden.
+   Neutral white, not the green of .correct, so a pick never reads as right. */
 
 .option-btn.selected,
 .option-btn.selected:disabled {
-    border-color: var(--accent);
-    background: var(--accent-soft);
+    border-color: var(--text-bright);
+    background: rgba(232, 240, 234, 0.07);
+    box-shadow: inset 0 0 0 1px var(--text-bright);
     opacity: 1;
 }
 
 .option-btn.selected .option-label {
-    color: var(--accent);
+    color: var(--text-bright);
+    font-weight: 600;
 }
 
 .option-btn.selected .option-text {

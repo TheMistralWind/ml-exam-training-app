@@ -4,6 +4,7 @@
 - Sanitize duplicate-correct options at CSV load on server
 - Show sign-in failures inline with a loading state, and track `sign_in_failed`
 - Rename the quiz "Back" button to "Previous question" and add a "Menu" button next to it that opens the practice picker; `picker_opened` now has a `from` property
+- Exam mode: show the picked option in neutral white, not the green of a correct answer, and stop dimming it
 - Agent: auto
 
 # Database Structure Upgrade
